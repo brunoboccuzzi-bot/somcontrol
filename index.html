@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>SomControl — Sistema Interno</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f13;--surface:#18181f;--surface2:#1e1e28;--surface3:#252533;
+  --border:#2a2a3a;--border2:#35354a;
+  --txt:#f0f0f8;--txt2:#9090b8;--txt3:#5a5a80;
+  --blue:#4f8ef7;--green:#22d3a5;--amber:#f59e0b;
+  --red:#ef4444;--purple:#a78bfa;
+}
+body{background:var(--bg);color:var(--txt);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* LOGIN */
+#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:24px}
+.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:36px 32px;width:100%;max-width:360px}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .name{font-size:22px;font-weight:800;color:var(--txt);margin-bottom:4px}
+.login-logo .sub{font-size:12px;color:var(--txt3)}
+.login-box label{display:block;font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:5px}
+.login-box input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:14px}
+.login-box input:focus{border-color:var(--blue)}
+.login-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px}
+.login-btn:hover{opacity:.9}
+.login-err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:14px;display:none}
+
+/* APP */
+#app{display:none;flex:1;overflow:hidden}
+#app.visible{display:flex}
+#sidebar{width:200px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+#sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border)}
+#sidebar-logo .name{font-size:15px;font-weight:800;color:var(--txt)}
+#sidebar-logo .sub{font-size:11px;color:var(--txt3);margin-top:2px}
+#sidebar-nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--txt2);font-size:13px;font-weight:600;margin-bottom:2px;transition:all .15s}
+.nav-item:hover{background:var(--surface2);color:var(--txt)}
+.nav-item.active{background:var(--surface3);color:var(--blue)}
+.nav-item i{font-size:17px;width:20px;text-align:center}
+#sidebar-bottom{padding:12px 8px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px}
+.user-av{width:30px;height:30px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.user-name{font-size:12px;font-weight:700;color:var(--txt)}
+.user-role{font-size:11px;color:var(--txt3)}
+.logout-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--red);font-size:12px;font-weight:600;margin-top:4px;transition:all .15s}
+.logout-btn:hover{background:rgba(239,68,68,.1)}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{padding:14px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-shrink:0}
+#topbar h1{font-size:17px;font-weight:700;color:var(--txt)}
+.top-date{font-size:12px;color:var(--txt3)}
+#content{flex:1;overflow-y:auto;padding:22px}
+
+/* MÉTRICAS */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.metric-label{font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.metric-val{font-size:24px;font-weight:800;color:var(--txt);line-height:1}
+.metric-sub{font-size:11px;color:var(--txt3);margin-top:4px}
+.metric-card.blue .metric-val{color:var(--blue)}
+.metric-card.green .metric-val{color:var(--green)}
+.metric-card.amber .metric-val{color:var(--amber)}
+.metric-card.purple .metric-val{color:var(--purple)}
+
+/* LAYOUTS */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-header h2{font-size:15px;font-weight:700;color:var(--txt)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+.empty{text-align:center;padding:40px 20px;color:var(--txt3)}
+.empty i{font-size:36px;margin-bottom:10px;display:block}
+.empty p{font-size:13px}
+
+/* BOTÕES */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{opacity:.9}
+.btn-secondary{background:var(--surface2);color:var(--txt);border:1px solid var(--border)}.btn-secondary:hover{background:var(--surface3)}
+.btn-danger{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.btn-green{background:var(--green);color:#0b0b0f}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* TABELA */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px}
+table{width:100%;border-collapse:collapse}
+th{padding:11px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--surface2)}
+td{padding:11px 14px;font-size:13px;color:var(--txt);border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
+.badge-green{background:rgba(34,211,165,.15);color:var(--green)}
+.badge-amber{background:rgba(245,158,11,.15);color:var(--amber)}
+.badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+.badge-blue{background:rgba(79,142,247,.15);color:var(--blue)}
+.badge-gray{background:var(--surface2);color:var(--txt2)}
+
+/* MODAL */
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center}
+#modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:24px;width:520px;max-width:95vw;max-height:85vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:18px;color:var(--txt)}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* FORMULÁRIO */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.single{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:5px}
+label{font-size:12px;font-weight:700;color:var(--txt2)}
+input,select,textarea{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--txt);font-family:inherit;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+select option{background:var(--surface2)}
+textarea{resize:vertical;min-height:70px}
+input[readonly]{opacity:.6;cursor:default}
+
+/* ORÇAMENTO */
+.orc-items-list{background:var(--surface2);border-radius:8px;padding:12px;margin:8px 0}
+.orc-item-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.orc-item-row:last-child{margin-bottom:0}
+.remove-item{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px;font-family:inherit;flex-shrink:0}
+.total-box{background:rgba(34,211,165,.08);border:1px solid rgba(34,211,165,.25);border-radius:8px;padding:12px 16px;margin-top:12px;text-align:right}
+.total-box .tlabel{font-size:12px;color:var(--txt3);margin-bottom:2px}
+.total-box .tval{font-size:22px;font-weight:800;color:var(--green)}
+
+/* AGENDA */
+.cal-header-g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-day-name{text-align:center;font-size:11px;font-weight:700;color:var(--txt3);padding:4px}
+.cal-day{min-height:68px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px}
+.cal-day.today{border-color:var(--blue);background:rgba(79,142,247,.06)}
+.cal-day.other-month .day-num{color:var(--txt3)}
+.day-num{font-size:12px;font-weight:700;margin-bottom:3px}
+.cal-event{font-size:10px;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-event.blue{background:rgba(79,142,247,.2);color:var(--blue)}
+.cal-event.green{background:rgba(34,211,165,.2);color:var(--green)}
+.cal-event.amber{background:rgba(245,158,11,.2);color:var(--amber)}
+
+/* USUÁRIOS */
+.usuarios-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:22px}
+.usuario-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
+.usuario-av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;margin-bottom:10px}
+.usuario-nome{font-size:14px;font-weight:700;color:var(--txt);margin-bottom:2px}
+.usuario-info{font-size:12px;color:var(--txt3);margin-bottom:10px}
+.cor-opt{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .15s}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:200;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+#toast.show{transform:translateY(0);opacity:1}
+</style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="name">🎛️ SomControl</div>
+      <div class="sub">Sistema interno — acesso restrito</div>
+    </div>
+    <div class="login-err" id="login-err">Usuário ou senha incorretos.</div>
+    <label for="inp-user">Usuário</label>
+    <input id="inp-user" type="text" placeholder="seu.usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    <label for="inp-pass">Senha</label>
+    <input id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app">
+  <div id="sidebar">
+    <div id="sidebar-logo">
+      <div class="name">SomControl</div>
+      <div class="sub">Sistema Interno</div>
+    </div>
+    <nav id="sidebar-nav">
+      <div class="nav-item active" onclick="go('dashboard')"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
+      <div class="nav-item" onclick="go('clientes')"><i class="ti ti-users"></i>Clientes</div>
+      <div class="nav-item" onclick="go('equipamentos')"><i class="ti ti-device-speaker"></i>Equipamentos</div>
+      <div class="nav-item" onclick="go('orcamentos')"><i class="ti ti-file-invoice"></i>Orçamentos</div>
+      <div class="nav-item" onclick="go('agenda')"><i class="ti ti-calendar"></i>Agenda</div>
+      <div class="nav-item" onclick="go('pagamentos')"><i class="ti ti-cash"></i>Pagamentos</div>
+      <div class="nav-item" onclick="go('relatorios')"><i class="ti ti-chart-bar"></i>Relatórios</div>
+      <div class="nav-item" id="nav-usuarios" style="display:none" onclick="go('usuarios')"><i class="ti ti-shield"></i>Usuários</div>
+    </nav>
+    <div id="sidebar-bottom">
+      <div class="user-card">
+        <div class="user-av" id="sb-av">B</div>
+        <div><div class="user-name" id="sb-nome">Bruno</div><div class="user-role" id="sb-role">Admin</div></div>
+      </div>
+      <div class="logout-btn" onclick="doLogout()"><i class="ti ti-logout"></i>Sair</div>
+    </div>
+  </div>
+  <div id="main">
+    <div id="topbar">
+      <h1 id="page-title">Dashboard</h1>
+      <div class="top-date" id="top-date"></div>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const CORES=['#4f8ef7','#22d3a5','#a78bfa','#f59e0b','#f472b6','#ef4444'];
+
+const DB={
+  get(k){try{return JSON.parse(localStorage.getItem('sc_'+k)||'null')}catch(e){return null}},
+  set(k,v){localStorage.setItem('sc_'+k,JSON.stringify(v))},
+  init(){
+    if(!this.get('usuarios')) this.set('usuarios',[
+      {id:1,usuario:'admin',senha:'som2026',nome:'Bruno',role:'admin',cor:'#4f8ef7'},
+      {id:2,usuario:'gustavo',senha:'gustavo123',nome:'Gustavo',role:'funcionario',cor:'#22d3a5'}
+    ]);
+    if(!this.get('clientes')) this.set('clientes',[
+      {id:1,nome:'João Silva',tel:'(11)98888-0001',email:'joao@email.com',cidade:'São Paulo',tipo:'PF',obs:''},
+      {id:2,nome:'Maria Eventos',tel:'(11)97777-0002',email:'maria@eventos.com',cidade:'São Paulo',tipo:'PJ',obs:''}
+    ]);
+    if(!this.get('equipamentos')) this.set('equipamentos',[
+      {id:1,nome:'Caixa JBL PRX 815',cat:'Caixa Ativa',qtd:4,diaria:150},
+      {id:2,nome:'Subwoofer JBL PRX 818',cat:'Subwoofer',qtd:2,diaria:180},
+      {id:3,nome:'Mesa Behringer X32',cat:'Mesa de Som',qtd:1,diaria:200},
+      {id:4,nome:'Mesa Yamaha MG16',cat:'Mesa de Som',qtd:2,diaria:100},
+      {id:5,nome:'Microfone Shure SM58',cat:'Microfone',qtd:8,diaria:40},
+      {id:6,nome:'Microfone Sem Fio UHF',cat:'Microfone',qtd:3,diaria:70}
+    ]);
+    if(!this.get('orcamentos')) this.set('orcamentos',[
+      {id:1,num:'0001',cliente_id:1,cliente:'João Silva',evento:'Casamento',data_evento:'2026-06-15',data_ret:'2026-06-16',local:'São Paulo',itens:[{nome:'Caixa JBL PRX 815',qtd:2,diaria:150}],frete:200,total:500,status:'aprovado',criado:'2026-05-10',criado_por:'Bruno'},
+      {id:2,num:'0002',cliente_id:2,cliente:'Maria Eventos',evento:'Formatura',data_evento:'2026-05-20',data_ret:'2026-05-21',local:'Guarulhos',itens:[{nome:'Mesa Behringer X32',qtd:1,diaria:200},{nome:'Microfone Shure SM58',qtd:4,diaria:40}],frete:150,total:690,status:'pendente',criado:'2026-05-12',criado_por:'Gustavo'}
+    ]);
+    if(!this.get('pagamentos')) this.set('pagamentos',[
+      {id:1,orc_num:'0001',cliente:'João Silva',valor:500,pago:250,metodo:'PIX',status:'parcial',data:'2026-05-10'},
+      {id:2,orc_num:'0002',cliente:'Maria Eventos',valor:690,pago:0,metodo:'',status:'pendente',data:'2026-05-12'}
+    ]);
+  }
+};
+DB.init();
+
+let currentUser=null, orcItens=[];
+
+function doLogin(){
+  const u=$('inp-user').value.trim().toLowerCase(), p=$('inp-pass').value;
+  const us=DB.get('usuarios')||[];
+  const found=us.find(x=>x.usuario.toLowerCase()===u&&x.senha===p);
+  if(!found){$('login-err').style.display='block';$('inp-pass').value='';return;}
+  currentUser=found;
+  $('login-screen').style.display='none';
+  $('app').classList.add('visible');
+  $('sb-av').textContent=found.nome[0].toUpperCase();
+  $('sb-av').style.background=found.cor||'#4f8ef7';
+  $('sb-nome').textContent=found.nome;
+  $('sb-role').textContent=found.role==='admin'?'Administrador':'Funcionário';
+  $('nav-usuarios').style.display=found.role==='admin'?'flex':'none';
+  $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  go('dashboard');
+}
+
+function doLogout(){
+  currentUser=null;
+  $('app').classList.remove('visible');
+  $('login-screen').style.display='flex';
+  $('login-err').style.display='none';
+  $('inp-user').value='';$('inp-pass').value='';
+  $('nav-usuarios').style.display='none';
+}
+
+function go(page){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios'];
+  document.querySelectorAll('.nav-item')[idx.indexOf(page)]?.classList.add('active');
+  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',usuarios:'Usuários'};
+  $('page-title').textContent=titles[page]||page;
+  pages[page]?.();
+}
+
+function openModal(title,body,footer){
+  $('modal-title').textContent=title;
+  $('modal-body').innerHTML=body;
+  $('modal-footer').innerHTML=footer;
+  $('modal-overlay').classList.add('open');
+}
+function closeModal(){$('modal-overlay').classList.remove('open');}
+$('modal-overlay').onclick=e=>{if(e.target===$('modal-overlay'))closeModal();};
+
+function toast(msg,ok=true){
+  const t=$('toast');
+  t.textContent=msg;
+  t.style.background=ok?'var(--green)':'var(--red)';
+  t.style.color=ok?'#0b0b0f':'#fff';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+const brl=v=>'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+const fmtD=s=>{try{return new Date(s+'T12:00').toLocaleDateString('pt-BR')}catch(e){return s}};
+
+const pages={
+dashboard(){
+  const cl=DB.get('clientes')||[],or=DB.get('orcamentos')||[],pa=DB.get('pagamentos')||[],eq=DB.get('equipamentos')||[];
+  const rec=pa.reduce((s,p)=>s+parseFloat(p.pago||0),0);
+  $('content').innerHTML=`
+  <div class="metrics">
+    <div class="metric-card blue"><div class="metric-label">Clientes</div><div class="metric-val">${cl.length}</div><div class="metric-sub">cadastrados</div></div>
+    <div class="metric-card green"><div class="metric-label">Receita recebida</div><div class="metric-val">${brl(rec)}</div><div class="metric-sub">acumulado</div></div>
+    <div class="metric-card amber"><div class="metric-label">Pendentes</div><div class="metric-val">${or.filter(o=>o.status==='pendente').length}</div><div class="metric-sub">orçamentos</div></div>
+    <div class="metric-card purple"><div class="metric-label">Aprovados</div><div class="metric-val">${or.filter(o=>o.status==='aprovado').length}</div><div class="metric-sub">orçamentos</div></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="section-header"><h2>Últimos orçamentos</h2><button class="btn btn-secondary btn-sm" onclick="go('orcamentos')">Ver todos</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Evento</th><th>Total</th><th>Status</th></tr></thead>
+      <tbody>${or.slice(-4).reverse().map(o=>`<tr><td>${o.cliente}</td><td>${o.evento}</td><td>${brl(o.total)}</td>
+        <td><span class="badge ${o.status==='aprovado'?'badge-green':o.status==='pendente'?'badge-amber':'badge-gray'}">${o.status}</span></td></tr>`).join('')||
+        '<tr><td colspan="4" style="text-align:center;color:var(--txt3);padding:20px">Nenhum orçamento</td></tr>'}</tbody></table></div>
+    </div>
+    <div>
+      <div class="section-header"><h2>Estoque</h2><button class="btn btn-secondary btn-sm" onclick="go('equipamentos')">Gerenciar</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Equipamento</th><th>Qtd</th></tr></thead>
+      <tbody>${eq.map(e=>`<tr><td>${e.nome}</td><td><span class="badge ${e.qtd>2?'badge-green':e.qtd>0?'badge-amber':'badge-red'}">${e.qtd}</span></td></tr>`).join('')}</tbody></table></div>
+    </div>
+  </div>`;
+},
+clientes(){
+  const cl=DB.get('clientes')||[];
+  $('content').innerHTML=`
+  <div class="section-header"><h2>${cl.length} clientes</h2>
+    <button class="btn btn-primary" onclick="novoCliente()"><i class="ti ti-plus"></i>Novo cliente</button></div>
+  <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>E-mail</th><th>Cidade</th><th>Tipo</th><th></th></tr></thead>
+  <tbody>${cl.length?cl.map(c=>`<tr><td><strong>${c.nome}</strong></td><td>${c.tel}</td><td>${c.email}</td><td>${c.cidade}</td>
+    <td><span class="badge badge-gray">${c.tipo}</span></td>
+    <td style="display:flex;gap:6px">
+      <button class="btn btn-secondary btn-sm" onclick="editCliente(${c.id})"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-danger btn-sm" onclick="delCliente(${c.id})"><i class="ti ti-trash"></i></button>
+    </td></tr>`).join(''):'<tr><td colspan="6"><div class="empty"><i class="ti ti-users"></i><p>Nenhum cliente cadastrado.</p></div></td></tr>'}</tbody></table></div>`;
+},
+equipamentos(){
+  const eq=DB.get('equipamentos')||[];
+  $('content').innerHTML=`
+  <div class="section-header"><h2>${eq.length} equipamentos</h2>
+    <button class="btn btn-primary" onclick="novoEq()"><i class="ti ti-plus"></i>Novo equipamento</button></div>
+  <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Categoria</th><th>Qtd</th><th>Diária</th><th>Status</th><th></th></tr></thead>
+  <tbody>${eq.map(e=>`<tr><td><strong>${e.nome}</strong></td><td>${e.cat}</td>
+    <td><span class="badge ${e.qtd>2?'badge-green':e.qtd>0?'badge-amber':'badge-red'}">${e.qtd}</span></td>
+    <td>${brl(e.diaria)}</td>
+    <td><span class="badge ${e.qtd>0?'badge-green':'badge-red'}">${e.qtd>0?'disponível':'indisponível'}</span></td>
+    <td style="display:flex;gap:6px">
+      <button class="btn btn-secondary btn-sm" onclick="editEq(${e.id})"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-danger btn-sm" onclick="delEq(${e.id})"><i class="ti ti-trash"></i></button>
+    </td></tr>`).join('')}</tbody></table></div>`;
+},
+orcamentos(){
+  const or=DB.get('orcamentos')||[];
+  $('content').innerHTML=`
+  <div class="section-header"><h2>${or.length} orçamentos</h2>
+    <button class="btn btn-primary" onclick="novoOrc()"><i class="ti ti-plus"></i>Novo orçamento</button></div>
+  <div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Evento</th><th>Data</th><th>Total</th><th>Status</th><th></th></tr></thead>
+  <tbody>${or.length?or.slice().reverse().map(o=>`<tr>
+    <td><strong>#${o.num}</strong></td><td>${o.cliente}</td><td>${o.evento}</td>
+    <td>${o.data_evento?fmtD(o.data_evento):''}</td>
+    <td><strong>${brl(o.total)}</strong></td>
+    <td><span class="badge ${o.status==='aprovado'?'badge-green':o.status==='pendente'?'badge-amber':o.status==='cancelado'?'badge-red':'badge-gray'}">${o.status}</span></td>
+    <td style="display:flex;gap:6px">
+      <button class="btn btn-secondary btn-sm" onclick="verOrc(${o.id})"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-danger btn-sm" onclick="delOrc(${o.id})"><i class="ti ti-trash"></i></button>
+    </td></tr>`).join(''):'<tr><td colspan="7"><div class="empty"><i class="ti ti-file-invoice"></i><p>Nenhum orçamento.</p></div></td></tr>'}</tbody></table></div>`;
+},
+agenda(){
+  const or=DB.get('orcamentos')||[];
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const dias=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const first=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),dip=new Date(y,m,0).getDate();
+  let cells=[];
+  for(let i=first-1;i>=0;i--) cells.push({d:dip-i,cur:false});
+  for(let d=1;d<=dim;d++) cells.push({d,cur:true});
+  while(cells.length%7!==0) cells.push({d:cells.length-dim-first+1,cur:false});
+  $('content').innerHTML=`
+  <div class="section-header"><h2>${meses[m]} ${y}</h2></div>
+  <div class="cal-header-g">${dias.map(d=>`<div class="cal-day-name">${d}</div>`).join('')}</div>
+  <div class="cal-grid">${cells.map(c=>{
+    const today=c.cur&&c.d===now.getDate();
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(c.d).padStart(2,'0')}`;
+    const evs=or.filter(o=>o.data_evento===ds);
+    return `<div class="cal-day${!c.cur?' other-month':''}${today?' today':''}">
+      <div class="day-num">${c.d}</div>
+      ${evs.map(e=>`<div class="cal-event ${e.status==='aprovado'?'green':'amber'}">${e.cliente}</div>`).join('')}
+    </div>`;
+  }).join('')}</div>
+  <div style="display:flex;gap:12px;font-size:12px;color:var(--txt3);margin-top:14px">
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(34,211,165,.3);margin-right:4px"></span>Aprovado</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(245,158,11,.3);margin-right:4px"></span>Pendente</span>
+  </div>`;
+},
+pagamentos(){
+  const pa=DB.get('pagamentos')||[];
+  const tot=pa.reduce((s,p)=>s+parseFloat(p.valor||0),0);
+  const rec=pa.reduce((s,p)=>s+parseFloat(p.pago||0),0);
+  $('content').innerHTML=`
+  <div class="metrics" style="margin-bottom:22px">
+    <div class="metric-card green"><div class="metric-label">Recebido</div><div class="metric-val">${brl(rec)}</div></div>
+    <div class="metric-card amber"><div class="metric-label">A receber</div><div class="metric-val">${brl(tot-rec)}</div></div>
+    <div class="metric-card blue"><div class="metric-label">Total faturado</div><div class="metric-val">${brl(tot)}</div></div>
+  </div>
+  <div class="section-header"><h2>Pagamentos</h2></div>
+  <div class="table-wrap"><table><thead><tr><th>Orç.</th><th>Cliente</th><th>Valor</th><th>Pago</th><th>Restante</th><th>Método</th><th>Status</th><th></th></tr></thead>
+  <tbody>${pa.map(p=>`<tr>
+    <td>#${p.orc_num}</td><td>${p.cliente}</td><td>${brl(p.valor)}</td>
+    <td style="color:var(--green)">${brl(p.pago)}</td>
+    <td style="color:${p.valor-p.pago>0?'var(--amber)':'var(--green)'}">${brl(p.valor-p.pago)}</td>
+    <td>${p.metodo||'—'}</td>
+    <td><span class="badge ${p.status==='pago'?'badge-green':p.status==='parcial'?'badge-amber':'badge-red'}">${p.status}</span></td>
+    <td><button class="btn btn-secondary btn-sm" onclick="registrarPag(${p.id})">Registrar</button></td>
+  </tr>`).join('')}</tbody></table></div>`;
+},
+relatorios(){
+  const or=DB.get('orcamentos')||[],pa=DB.get('pagamentos')||[];
+  const fat=or.reduce((s,o)=>s+parseFloat(o.total||0),0);
+  const rec=pa.reduce((s,p)=>s+parseFloat(p.pago||0),0);
+  const por={};or.forEach(o=>{por[o.status]=(por[o.status]||0)+1;});
+  const teq={};or.forEach(o=>o.itens?.forEach(i=>{teq[i.nome]=(teq[i.nome]||0)+i.qtd;}));
+  const top=Object.entries(teq).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  $('content').innerHTML=`
+  <div class="metrics">
+    <div class="metric-card green"><div class="metric-label">Faturamento</div><div class="metric-val">${brl(fat)}</div></div>
+    <div class="metric-card blue"><div class="metric-label">Recebido</div><div class="metric-val">${brl(rec)}</div></div>
+    <div class="metric-card amber"><div class="metric-label">A receber</div><div class="metric-val">${brl(fat-rec)}</div></div>
+    <div class="metric-card purple"><div class="metric-label">Orçamentos</div><div class="metric-val">${or.length}</div></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="section-header"><h2>Por status</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>Status</th><th>Qtd</th></tr></thead>
+      <tbody>${Object.entries(por).map(([s,n])=>`<tr><td><span class="badge ${s==='aprovado'?'badge-green':s==='pendente'?'badge-amber':'badge-gray'}">${s}</span></td><td><strong>${n}</strong></td></tr>`).join('')||'<tr><td colspan="2" style="text-align:center;color:var(--txt3);padding:16px">Sem dados</td></tr>'}</tbody></table></div>
+    </div>
+    <div>
+      <div class="section-header"><h2>Mais locados</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>Equipamento</th><th>Qtd</th></tr></thead>
+      <tbody>${top.length?top.map(([n,q])=>`<tr><td>${n}</td><td><strong>${q}</strong></td></tr>`).join(''):'<tr><td colspan="2" style="text-align:center;color:var(--txt3);padding:16px">Sem dados</td></tr>'}</tbody></table></div>
+    </div>
+  </div>`;
+},
+usuarios(){
+  if(currentUser?.role!=='admin'){$('content').innerHTML='<div class="empty"><i class="ti ti-lock"></i><p>Acesso restrito ao administrador.</p></div>';return;}
+  const us=DB.get('usuarios')||[];
+  $('content').innerHTML=`
+  <div class="section-header"><h2>${us.length} usuários</h2>
+    <button class="btn btn-primary" onclick="novoUsuario()"><i class="ti ti-plus"></i>Novo usuário</button></div>
+  <div class="usuarios-grid">${us.map(u=>`
+    <div class="usuario-card">
+      <div class="usuario-av" style="background:${u.cor||'#4f8ef7'}">${u.nome[0].toUpperCase()}</div>
+      <div class="usuario-nome">${u.nome}</div>
+      <div class="usuario-info">${u.role==='admin'?'Administrador':'Funcionário'} · @${u.usuario}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-secondary btn-sm" onclick="editUsuario(${u.id})"><i class="ti ti-edit"></i> Editar</button>
+        ${u.id!==currentUser.id?`<button class="btn btn-danger btn-sm" onclick="delUsuario(${u.id})"><i class="ti ti-trash"></i></button>`:''}
+      </div>
+    </div>`).join('')}</div>`;
+}
+};
+
+function novoCliente(){
+  openModal('Novo cliente',`
+  <div class="form-row"><div class="form-group"><label>Nome</label><input id="f-nome" placeholder="Nome completo"></div>
+  <div class="form-group"><label>Tipo</label><select id="f-tipo"><option>PF</option><option>PJ</option></select></div></div>
+  <div class="form-row"><div class="form-group"><label>Telefone</label><input id="f-tel" placeholder="(11) 99999-0000"></div>
+  <div class="form-group"><label>E-mail</label><input id="f-email" type="email" placeholder="email@..."></div></div>
+  <div class="form-row single"><div class="form-group"><label>Cidade</label><input id="f-cidade" placeholder="São Paulo"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs"></textarea></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarCliente(0)">Salvar</button>`);
+}
+function editCliente(id){
+  const c=(DB.get('clientes')||[]).find(x=>x.id===id);if(!c)return;
+  openModal('Editar cliente',`
+  <div class="form-row"><div class="form-group"><label>Nome</label><input id="f-nome" value="${c.nome}"></div>
+  <div class="form-group"><label>Tipo</label><select id="f-tipo"><option${c.tipo==='PF'?' selected':''}>PF</option><option${c.tipo==='PJ'?' selected':''}>PJ</option></select></div></div>
+  <div class="form-row"><div class="form-group"><label>Telefone</label><input id="f-tel" value="${c.tel}"></div>
+  <div class="form-group"><label>E-mail</label><input id="f-email" value="${c.email}"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Cidade</label><input id="f-cidade" value="${c.cidade}"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs">${c.obs||''}</textarea></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarCliente(${id})">Salvar</button>`);
+}
+function salvarCliente(id){
+  const nome=$('f-nome')?.value?.trim();if(!nome){toast('Nome obrigatório',false);return;}
+  const lista=DB.get('clientes')||[];
+  const obj={nome,tipo:$('f-tipo').value,tel:$('f-tel').value,email:$('f-email').value,cidade:$('f-cidade').value,obs:$('f-obs').value};
+  if(id===0){obj.id=Date.now();lista.push(obj);}
+  else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
+  DB.set('clientes',lista);closeModal();toast('Cliente salvo!');pages.clientes();
+}
+function delCliente(id){
+  if(!confirm('Excluir este cliente?'))return;
+  DB.set('clientes',(DB.get('clientes')||[]).filter(x=>x.id!==id));
+  toast('Removido!');pages.clientes();
+}
+
+function novoEq(){
+  openModal('Novo equipamento',`
+  <div class="form-row single"><div class="form-group"><label>Nome</label><input id="f-nome" placeholder="Ex: Caixa JBL PRX 815"></div></div>
+  <div class="form-row"><div class="form-group"><label>Categoria</label><select id="f-cat">
+    <option>Caixa Ativa</option><option>Subwoofer</option><option>Mesa de Som</option>
+    <option>Microfone</option><option>Amplificador</option><option>Cabo</option><option>Outro</option>
+  </select></div>
+  <div class="form-group"><label>Quantidade</label><input id="f-qtd" type="number" value="1" min="0"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Diária (R$)</label><input id="f-diaria" type="number" value="100" min="0"></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarEq(0)">Salvar</button>`);
+}
+function editEq(id){
+  const e=(DB.get('equipamentos')||[]).find(x=>x.id===id);if(!e)return;
+  openModal('Editar equipamento',`
+  <div class="form-row single"><div class="form-group"><label>Nome</label><input id="f-nome" value="${e.nome}"></div></div>
+  <div class="form-row"><div class="form-group"><label>Categoria</label><select id="f-cat">
+    ${['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'].map(c=>`<option${e.cat===c?' selected':''}>${c}</option>`).join('')}
+  </select></div>
+  <div class="form-group"><label>Quantidade</label><input id="f-qtd" type="number" value="${e.qtd}" min="0"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Diária (R$)</label><input id="f-diaria" type="number" value="${e.diaria}" min="0"></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarEq(${id})">Salvar</button>`);
+}
+function salvarEq(id){
+  const nome=$('f-nome')?.value?.trim();if(!nome){toast('Nome obrigatório',false);return;}
+  const lista=DB.get('equipamentos')||[];
+  const obj={nome,cat:$('f-cat').value,qtd:parseInt($('f-qtd').value)||0,diaria:parseFloat($('f-diaria').value)||0};
+  if(id===0){obj.id=Date.now();lista.push(obj);}
+  else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
+  DB.set('equipamentos',lista);closeModal();toast('Equipamento salvo!');pages.equipamentos();
+}
+function delEq(id){
+  if(!confirm('Excluir?'))return;
+  DB.set('equipamentos',(DB.get('equipamentos')||[]).filter(x=>x.id!==id));
+  toast('Removido!');pages.equipamentos();
+}
+
+function novoOrc(){
+  orcItens=[];
+  const cl=DB.get('clientes')||[],eq=DB.get('equipamentos')||[];
+  if(!cl.length){toast('Cadastre um cliente primeiro',false);return;}
+  openModal('Novo orçamento',`
+  <div class="form-row"><div class="form-group"><label>Cliente</label>
+    <select id="f-cli">${cl.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}</select>
+  </div><div class="form-group"><label>Tipo de evento</label><input id="f-evento" placeholder="Casamento, Formatura..."></div></div>
+  <div class="form-row"><div class="form-group"><label>Data do evento</label><input id="f-data" type="date" onchange="renderOrcItens()"></div>
+  <div class="form-group"><label>Data devolução</label><input id="f-ret" type="date" onchange="renderOrcItens()"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Local</label><input id="f-local" placeholder="Cidade, bairro..."></div></div>
+  <div class="form-row"><div class="form-group"><label>Equipamento</label>
+    <select id="f-eq-sel">${eq.map(e=>`<option value="${e.id}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('')}</select>
+  </div><div class="form-group"><label>Quantidade</label>
+    <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
+    <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
+  </div></div>
+  <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
+  <div class="form-row single"><div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="0" min="0" onchange="renderOrcItens()"></div></div>
+  <div id="orc-total" style="display:none" class="total-box"><div class="tlabel">Total estimado</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarOrc()">Gerar orçamento</button>`);
+}
+function addItemOrc(){
+  const eq=DB.get('equipamentos')||[];
+  const sid=parseInt($('f-eq-sel')?.value);const e=eq.find(x=>x.id===sid);if(!e)return;
+  const qtd=parseInt($('f-eq-qtd')?.value)||1;
+  const ex=orcItens.findIndex(i=>i.eq_id===sid);
+  if(ex>=0) orcItens[ex].qtd+=qtd; else orcItens.push({eq_id:sid,nome:e.nome,qtd,diaria:e.diaria});
+  renderOrcItens();
+}
+function removeItemOrc(i){orcItens.splice(i,1);renderOrcItens();}
+function renderOrcItens(){
+  const prev=$('orc-items-preview'),totEl=$('orc-total');if(!prev)return;
+  const d1=$('f-data')?.value,d2=$('f-ret')?.value;
+  const dias=(d1&&d2)?Math.max(1,Math.round((new Date(d2)-new Date(d1))/86400000)):1;
+  const frete=parseFloat($('f-frete')?.value||0);
+  const sub=orcItens.reduce((s,i)=>s+i.qtd*i.diaria*dias,0);
+  if(!orcItens.length){prev.innerHTML=`<div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div>`;if(totEl)totEl.style.display='none';return;}
+  prev.innerHTML=`<div class="orc-items-list">${orcItens.map((i,idx)=>`
+    <div class="orc-item-row">
+      <span style="flex:1;font-size:13px">${i.nome}</span>
+      <span style="color:var(--txt3);font-size:12px">${i.qtd}x ${brl(i.diaria)}/dia</span>
+      <span style="color:var(--blue);font-size:12px;min-width:70px;text-align:right">${brl(i.qtd*i.diaria*dias)}</span>
+      <button class="remove-item" onclick="removeItemOrc(${idx})"><i class="ti ti-x"></i></button>
+    </div>`).join('')}</div>`;
+  if(totEl){totEl.style.display='block';$('orc-total-val').textContent=brl(sub+frete);}
+}
+function salvarOrc(){
+  const cl=DB.get('clientes')||[];
+  const cid=parseInt($('f-cli')?.value);const cli=cl.find(c=>c.id===cid);
+  const ev=$('f-evento')?.value?.trim(),d1=$('f-data')?.value,d2=$('f-ret')?.value;
+  if(!cli||!ev||!d1||!d2){toast('Preencha todos os campos',false);return;}
+  if(!orcItens.length){toast('Adicione pelo menos um item',false);return;}
+  const dias=Math.max(1,Math.round((new Date(d2)-new Date(d1))/86400000));
+  const frete=parseFloat($('f-frete')?.value||0);
+  const total=orcItens.reduce((s,i)=>s+i.qtd*i.diaria*dias,0)+frete;
+  const or=DB.get('orcamentos')||[];
+  const num=String(or.length+1).padStart(4,'0');
+  const novo={id:Date.now(),num,cliente_id:cid,cliente:cli.nome,evento:ev,data_evento:d1,data_ret:d2,
+    local:$('f-local')?.value||'',itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diaria:i.diaria})),
+    frete,total,status:'pendente',criado:new Date().toISOString().split('T')[0],criado_por:currentUser?.nome||''};
+  or.push(novo);DB.set('orcamentos',or);
+  const pa=DB.get('pagamentos')||[];
+  pa.push({id:Date.now(),orc_num:num,cliente:cli.nome,valor:total,pago:0,metodo:'',status:'pendente',data:novo.criado});
+  DB.set('pagamentos',pa);
+  closeModal();toast('Orçamento #'+num+' criado!');pages.orcamentos();
+}
+function verOrc(id){
+  const o=(DB.get('orcamentos')||[]).find(x=>x.id===id);if(!o)return;
+  openModal(`Orçamento #${o.num}`,`
+  <div class="form-row"><div class="form-group"><label>Cliente</label><input value="${o.cliente}" readonly></div>
+  <div class="form-group"><label>Status</label>
+  <select id="f-st" onchange="updateStatusOrc(${o.id},this.value)">
+    ${['pendente','aprovado','cancelado'].map(s=>`<option${o.status===s?' selected':''}>${s}</option>`).join('')}
+  </select></div></div>
+  <div class="form-row"><div class="form-group"><label>Evento</label><input value="${o.evento}" readonly></div>
+  <div class="form-group"><label>Data</label><input value="${o.data_evento?fmtD(o.data_evento):''}" readonly></div></div>
+  <div class="form-row single"><div class="form-group"><label>Local</label><input value="${o.local}" readonly></div></div>
+  <label style="font-size:12px;color:var(--txt3);font-weight:700;display:block;margin-top:12px;margin-bottom:6px">Itens</label>
+  <div class="orc-items-list">${(o.itens||[]).map(i=>`
+    <div class="orc-item-row"><span style="flex:1">${i.nome}</span>
+    <span style="color:var(--txt3)">${i.qtd}x ${brl(i.diaria)}</span></div>`).join('')}</div>
+  <div class="total-box"><div class="tlabel">Total</div><div class="tval">${brl(o.total)}</div></div>
+  ${o.criado_por?`<div style="font-size:11px;color:var(--txt3);margin-top:10px">Criado por: ${o.criado_por}</div>`:''}`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>`);
+}
+function updateStatusOrc(id,st){
+  const or=DB.get('orcamentos')||[];const i=or.findIndex(x=>x.id===id);
+  if(i>=0){or[i].status=st;DB.set('orcamentos',or);toast('Status atualizado!');}
+}
+function delOrc(id){
+  if(!confirm('Excluir orçamento?'))return;
+  DB.set('orcamentos',(DB.get('orcamentos')||[]).filter(x=>x.id!==id));
+  toast('Removido!');pages.orcamentos();
+}
+function registrarPag(id){
+  const p=(DB.get('pagamentos')||[]).find(x=>x.id===id);if(!p)return;
+  openModal(`Pagamento — orçamento #${p.orc_num}`,`
+  <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:14px;font-size:13px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--txt3)">Total</span><strong>${brl(p.valor)}</strong></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--txt3)">Já pago</span><strong style="color:var(--green)">${brl(p.pago)}</strong></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--txt3)">Restante</span><strong style="color:var(--amber)">${brl(p.valor-p.pago)}</strong></div>
+  </div>
+  <div class="form-row"><div class="form-group"><label>Valor recebido agora (R$)</label>
+    <input id="f-vp" type="number" value="${(p.valor-p.pago).toFixed(2)}" min="0">
+  </div><div class="form-group"><label>Forma de pagamento</label>
+    <select id="f-met"><option>PIX</option><option>Dinheiro</option><option>Cartão</option><option>Transferência</option></select>
+  </div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-green" onclick="salvarPag(${id})"><i class="ti ti-check"></i>Registrar</button>`);
+}
+function salvarPag(id){
+  const val=parseFloat($('f-vp')?.value||0),met=$('f-met')?.value;
+  const pa=DB.get('pagamentos')||[];const i=pa.findIndex(x=>x.id===id);if(i<0)return;
+  pa[i].pago=Math.min(pa[i].valor,pa[i].pago+val);
+  pa[i].metodo=met;
+  pa[i].status=pa[i].pago>=pa[i].valor?'pago':pa[i].pago>0?'parcial':'pendente';
+  DB.set('pagamentos',pa);closeModal();toast('Pagamento registrado!');pages.pagamentos();
+}
+function novoUsuario(){
+  openModal('Novo usuário',`
+  <div class="form-row"><div class="form-group"><label>Nome</label><input id="f-nome" placeholder="Nome completo"></div>
+  <div class="form-group"><label>Perfil</label><select id="f-role"><option value="funcionario">Funcionário</option><option value="admin">Administrador</option></select></div></div>
+  <div class="form-row"><div class="form-group"><label>Usuário (login)</label><input id="f-usuario" placeholder="nome.sobrenome"></div>
+  <div class="form-group"><label>Senha</label><input id="f-senha" type="password" placeholder="Mínimo 6 caracteres"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Cor do avatar</label>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">${CORES.map((c,i)=>`<div onclick="selCor('${c}',${i})" id="cor-${i}" class="cor-opt" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:2px solid transparent"></div>`).join('')}</div>
+  <input type="hidden" id="f-cor" value="${CORES[0]}"></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarUsuario(0)">Criar usuário</button>`);
+  setTimeout(()=>selCor(CORES[0],0),50);
+}
+function selCor(cor,idx){
+  $('f-cor').value=cor;
+  document.querySelectorAll('.cor-opt').forEach((el,i)=>el.style.borderColor=i===idx?'#fff':'transparent');
+}
+function editUsuario(id){
+  const us=DB.get('usuarios')||[],u=us.find(x=>x.id===id);if(!u)return;
+  openModal('Editar usuário',`
+  <div class="form-row"><div class="form-group"><label>Nome</label><input id="f-nome" value="${u.nome}"></div>
+  <div class="form-group"><label>Perfil</label><select id="f-role"><option value="funcionario"${u.role==='funcionario'?' selected':''}>Funcionário</option><option value="admin"${u.role==='admin'?' selected':''}>Administrador</option></select></div></div>
+  <div class="form-row single"><div class="form-group"><label>Nova senha (deixe em branco para não alterar)</label><input id="f-senha" type="password" placeholder="Nova senha..."></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarUsuario(${id})">Salvar</button>`);
+}
+function salvarUsuario(id){
+  const nome=$('f-nome')?.value?.trim();if(!nome){toast('Nome obrigatório',false);return;}
+  const us=DB.get('usuarios')||[];
+  if(id===0){
+    const login=$('f-usuario')?.value?.trim().toLowerCase(),senha=$('f-senha')?.value;
+    if(!login){toast('Usuário obrigatório',false);return;}
+    if(!senha||senha.length<6){toast('Senha mínimo 6 caracteres',false);return;}
+    if(us.find(x=>x.usuario===login)){toast('Usuário já existe',false);return;}
+    us.push({id:Date.now(),usuario:login,senha,nome,role:$('f-role')?.value||'funcionario',cor:$('f-cor')?.value||CORES[0]});
+  } else {
+    const i=us.findIndex(x=>x.id===id);if(i<0)return;
+    us[i].nome=nome;us[i].role=$('f-role')?.value||us[i].role;
+    const ns=$('f-senha')?.value;
+    if(ns&&ns.length>=6) us[i].senha=ns;
+    else if(ns&&ns.length>0){toast('Senha mínimo 6 caracteres',false);return;}
+  }
+  DB.set('usuarios',us);closeModal();toast('Usuário salvo!');pages.usuarios();
+}
+function delUsuario(id){
+  if(!confirm('Excluir este usuário?'))return;
+  DB.set('usuarios',(DB.get('usuarios')||[]).filter(x=>x.id!==id));
+  toast('Usuário removido!');pages.usuarios();
+}
+</script>
+</body>
+</html>
