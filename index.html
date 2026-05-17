@@ -1053,8 +1053,14 @@ function voltarParaOrc(cliId,evento,data,ret,local,frete){
   <div class="form-row"><div class="form-group"><label>Data do evento</label><input id="f-data" type="date" value="${data||''}" onchange="renderOrcItens()"></div>
   <div class="form-group"><label>Data devolução</label><input id="f-ret" type="date" value="${ret||''}" onchange="renderOrcItens()"></div></div>
   <div class="form-row single"><div class="form-group"><label>Local</label><input id="f-local" placeholder="Cidade, bairro..." value="${local||''}"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Filtrar por categoria</label>
+    <select id="f-cat-filtro" onchange="filtrarEqOrc()">
+      <option value="">Todos os equipamentos</option>
+      ${[...new Set(eq.map(e=>e.cat).filter(x=>x))].sort().map(cat=>`<option value="${cat}">${cat}</option>`).join('')}
+    </select>
+  </div></div>
   <div class="form-row"><div class="form-group"><label>Equipamento</label>
-    <select id="f-eq-sel">${eq.map(e=>`<option value="${e.id}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('')}</select>
+    <select id="f-eq-sel">${eq.map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('')}</select>
   </div><div class="form-group"><label>Quantidade</label>
     <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
     <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
@@ -1081,8 +1087,14 @@ function novoOrc(){
   <div class="form-row"><div class="form-group"><label>Data do evento</label><input id="f-data" type="date" onchange="renderOrcItens()"></div>
   <div class="form-group"><label>Data devolução</label><input id="f-ret" type="date" onchange="renderOrcItens()"></div></div>
   <div class="form-row single"><div class="form-group"><label>Local</label><input id="f-local" placeholder="Cidade, bairro..."></div></div>
+  <div class="form-row single"><div class="form-group"><label>Filtrar por categoria</label>
+    <select id="f-cat-filtro" onchange="filtrarEqOrc()">
+      <option value="">Todos os equipamentos</option>
+      ${[...new Set(eq.map(e=>e.cat).filter(x=>x))].sort().map(cat=>`<option value="${cat}">${cat}</option>`).join('')}
+    </select>
+  </div></div>
   <div class="form-row"><div class="form-group"><label>Equipamento</label>
-    <select id="f-eq-sel">${eq.map(e=>`<option value="${e.id}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('')}</select>
+    <select id="f-eq-sel">${eq.map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('')}</select>
   </div><div class="form-group"><label>Quantidade</label>
     <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
     <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
@@ -1092,6 +1104,14 @@ function novoOrc(){
   <div id="orc-total" style="display:none" class="total-box"><div class="tlabel">Total estimado</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarOrc()">Gerar orçamento</button>`);
+}
+function filtrarEqOrc(){
+  const cat=$('f-cat-filtro')?.value;
+  const sel=$('f-eq-sel');
+  if(!sel)return;
+  const eq=DB.get('equipamentos')||[];
+  const filtrados=cat?eq.filter(e=>e.cat===cat):eq;
+  sel.innerHTML=filtrados.map(e=>`<option value="${e.id}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');
 }
 function addItemOrc(){
   const eq=DB.get('equipamentos')||[];
