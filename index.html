@@ -148,6 +148,7 @@ input[readonly]{opacity:.6;cursor:default}
       <div class="nav-item" onclick="go('pagamentos')"><i class="ti ti-cash"></i>Pagamentos</div>
       <div class="nav-item" onclick="go('relatorios')"><i class="ti ti-chart-bar"></i>Relatórios</div>
       <div class="nav-item" id="nav-usuarios" style="display:none" onclick="go('usuarios')"><i class="ti ti-shield"></i>Usuários</div>
+      <div class="nav-item" id="nav-log" style="display:none" onclick="go('log')"><i class="ti ti-list-search"></i>Log</div>
     </nav>
     <div id="sidebar-bottom">
       <div class="user-card">
@@ -342,6 +343,25 @@ DB.init();
 let currentUser=null,orcItens=[];
 
 // Usuários fixos no código — nunca se perdem
+// ── SISTEMA DE LOG ──────────────────────────────────────
+function registrarLog(acao, detalhes=''){
+  try {
+    const logs = JSON.parse(localStorage.getItem('sc_logs')||'[]');
+    const entrada = {
+      id: Date.now(),
+      data: new Date().toLocaleDateString('pt-BR'),
+      hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+      usuario: currentUser ? currentUser.nome : 'Sistema',
+      acao,
+      detalhes: String(detalhes||'')
+    };
+    logs.unshift(entrada); // mais recente primeiro
+    // Manter só os últimos 500 registros
+    if(logs.length > 500) logs.splice(500);
+    localStorage.setItem('sc_logs', JSON.stringify(logs));
+  } catch(e) { console.warn('Erro ao registrar log:', e); }
+}
+
 const USUARIOS_FIXOS=[
   {id:1,usuario:'bruno',senha:'294700',nome:'Bruno',role:'admin',cor:'#4f8ef7'},
   {id:2,usuario:'gustavo',senha:'gustavo123',nome:'Gustavo',role:'funcionario',cor:'#22d3a5'}
@@ -360,19 +380,22 @@ function doLogin(){
   $('sb-nome').textContent=found.nome;
   $('sb-role').textContent=found.role==='admin'?'Administrador':'Funcionário';
   $('nav-usuarios').style.display=found.role==='admin'?'flex':'none';
+  $('nav-log').style.display=found.usuario==='bruno'?'flex':'none';
   $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
-  DB.carregarDoSheets().then(()=>go('dashboard')); go('dashboard');
+  registrarLog('Login', 'Usuário entrou no sistema'); DB.carregarDoSheets().then(()=>go('dashboard')); go('dashboard');
 }
 function doLogout(){
+  registrarLog('Logout', 'Usuário saiu do sistema');
   currentUser=null;$('app').classList.remove('visible');$('login-screen').style.display='flex';
   $('login-err').style.display='none';$('inp-user').value='';$('inp-pass').value='';
   $('nav-usuarios').style.display='none';
+  $('nav-log').style.display='none';
 }
 function go(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios'];
+  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios','log'];
   document.querySelectorAll('.nav-item')[idx.indexOf(page)]?.classList.add('active');
-  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',usuarios:'Usuários'};
+  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',usuarios:'Usuários',log:'Log de Atividades'};
   $('page-title').textContent=titles[page]||page;
   pages[page]?.();
 }
@@ -748,6 +771,30 @@ relatorios(){
     </div>
   </div>`;
 },
+log(){
+  if(currentUser?.usuario!=='bruno'){$('content').innerHTML='<div class="empty"><i class="ti ti-lock"></i><p>Acesso restrito.</p></div>';return;}
+  const logs=JSON.parse(localStorage.getItem('sc_logs')||'[]');
+  $('content').innerHTML=`
+  <div class="section-header">
+    <h2>Log de atividades (${logs.length})</h2>
+    <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar todo o log?')){localStorage.removeItem('sc_logs');pages.log();}">
+      <i class="ti ti-trash"></i>Limpar log
+    </button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Data</th><th>Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead>
+      <tbody>${logs.length?logs.map(l=>`<tr>
+        <td style="white-space:nowrap">${l.data||''}</td>
+        <td style="white-space:nowrap;color:var(--txt3)">${l.hora||''}</td>
+        <td><span class="badge badge-blue">${l.usuario||''}</span></td>
+        <td><strong>${l.acao||''}</strong></td>
+        <td style="color:var(--txt3);font-size:12px">${l.detalhes||''}</td>
+      </tr>`).join(''):'<tr><td colspan="5"><div class="empty"><i class="ti ti-list-search"></i><p>Nenhuma atividade registrada ainda.</p></div></td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+},
 usuarios(){
   if(currentUser?.role!=='admin'){$('content').innerHTML='<div class="empty"><i class="ti ti-lock"></i><p>Acesso restrito.</p></div>';return;}
   // Mescla usuários fixos com extras do localStorage
@@ -787,7 +834,7 @@ function baixarPDF(id,interno){
   };
   try{
     gerarPDF(dados, interno);
-    toast(interno?'PDF interno baixado!':'PDF cliente baixado!');
+    toast(interno?'PDF interno baixado!':'PDF cliente baixado!');registrarLog(interno?'PDF interno':'PDF cliente','Orç #'+o.num+' — '+o.cliente);
   }catch(e){
     toast('Erro ao gerar PDF: '+e.message,false);
     console.error(e);
@@ -824,11 +871,13 @@ function salvarCliente(id){
   const obj={nome,tipo:$('f-tipo').value,tel:$('f-tel').value,email:$('f-email').value,cidade:$('f-cidade').value,obs:$('f-obs').value};
   if(id===0){obj.id=Date.now();lista.push(obj);}
   else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
-  DB.set('clientes',lista);closeModal();toast('Cliente salvo!');pages.clientes();
+  DB.set('clientes',lista);closeModal();toast('Cliente salvo!');registrarLog(id===0?'Novo cliente':'Editar cliente', nome);pages.clientes();
 }
 function delCliente(id){
   if(!confirm('Excluir este cliente?'))return;
+  const cli_del=(DB.get('clientes')||[]).find(x=>x.id===id);
   DB.set('clientes',(DB.get('clientes')||[]).filter(x=>x.id!==id));
+  registrarLog('Excluir cliente', cli_del?.nome||id);
   toast('Removido!');pages.clientes();
 }
 
@@ -862,7 +911,7 @@ function salvarEq(id){
   const obj={nome,cat:$('f-cat').value,qtd:parseInt($('f-qtd').value)||0,diaria:parseFloat($('f-diaria').value)||0};
   if(id===0){obj.id=Date.now();lista.push(obj);}
   else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
-  DB.set('equipamentos',lista);closeModal();toast('Equipamento salvo!');pages.equipamentos();
+  DB.set('equipamentos',lista);closeModal();toast('Equipamento salvo!');registrarLog(id===0?'Novo equipamento':'Editar equipamento', nome);pages.equipamentos();
 }
 
 function getCats(){
@@ -926,6 +975,7 @@ function addCat(){
   if(cats.map(x=>x.toLowerCase()).includes(val.toLowerCase())){toast('Categoria já existe',false);return;}
   cats.push(val);
   saveCats(cats);
+  registrarLog('Nova categoria', val);
   $('f-nova-cat').value='';
   renderCatsList();
   toast('Categoria adicionada!');
@@ -940,18 +990,90 @@ function delCat(idx){
 
 function delEq(id){
   if(!confirm('Excluir?'))return;
+  const eq_del=(DB.get('equipamentos')||[]).find(x=>x.id===id);
   DB.set('equipamentos',(DB.get('equipamentos')||[]).filter(x=>x.id!==id));
+  registrarLog('Excluir equipamento', eq_del?.nome||id);
   toast('Removido!');pages.equipamentos();
 }
 
 // ── ORÇAMENTOS ────────────────────────────────────────
+function novoClienteRapido(){
+  // Salva o estado atual do modal de orçamento
+  const cliAtual=$('f-cli')?.value;
+  const eventoAtual=$('f-evento')?.value;
+  const dataAtual=$('f-data')?.value;
+  const retAtual=$('f-ret')?.value;
+  const localAtual=$('f-local')?.value;
+  const freteAtual=$('f-frete')?.value;
+  const itensAtual=[...orcItens];
+
+  openModal('Novo cliente rápido',`
+  <div class="form-row"><div class="form-group"><label>Nome</label><input id="f-nome" placeholder="Nome completo"></div>
+  <div class="form-group"><label>Tipo</label><select id="f-tipo"><option>PF</option><option>PJ</option></select></div></div>
+  <div class="form-row"><div class="form-group"><label>Telefone</label><input id="f-tel" placeholder="(11) 99999-0000"></div>
+  <div class="form-group"><label>E-mail</label><input id="f-email" type="email" placeholder="email@..."></div></div>
+  <div class="form-row single"><div class="form-group"><label>Cidade</label><input id="f-cidade" placeholder="São Paulo"></div></div>`,
+  `<button class="btn btn-secondary" onclick="voltarParaOrc('${cliAtual}','${eventoAtual}','${dataAtual}','${retAtual}','${localAtual}','${freteAtual}')">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarClienteRapido('${cliAtual}','${eventoAtual}','${dataAtual}','${retAtual}','${localAtual}','${freteAtual}')">Salvar e continuar</button>`);
+  // Restaurar itens após reabrir
+  window._orcItensTemp = itensAtual;
+}
+
+function salvarClienteRapido(cliAnterior,evento,data,ret,local,frete){
+  const nome=$('f-nome')?.value?.trim();
+  if(!nome){toast('Nome obrigatório',false);return;}
+  const lista=DB.get('clientes')||[];
+  const novoId=Date.now();
+  const novo={id:novoId,nome,tipo:$('f-tipo').value,tel:$('f-tel').value,
+    email:$('f-email').value,cidade:$('f-cidade').value,obs:''};
+  lista.push(novo);
+  DB.set('clientes',lista);
+  registrarLog('Novo cliente (rápido)', nome);
+  toast('Cliente '+nome+' criado!');
+  // Restaurar itens salvos
+  if(window._orcItensTemp) orcItens=[...window._orcItensTemp];
+  // Reabrir modal de orçamento com novo cliente selecionado
+  voltarParaOrc(novoId,evento,data,ret,local,frete);
+}
+
+function voltarParaOrc(cliId,evento,data,ret,local,frete){
+  if(window._orcItensTemp) orcItens=[...window._orcItensTemp];
+  const cl=DB.get('clientes')||[];
+  const eq=DB.get('equipamentos')||[];
+  openModal('Novo orçamento',`
+  <div class="form-row"><div class="form-group"><label>Cliente</label>
+    <div style="display:flex;gap:6px">
+      <select id="f-cli" style="flex:1">${cl.map(c=>`<option value="${c.id}"${String(c.id)===String(cliId)?' selected':''}>${c.nome}</option>`).join('')}</select>
+      <button class="btn btn-secondary btn-sm" onclick="novoClienteRapido()" title="Adicionar novo cliente" style="flex-shrink:0"><i class="ti ti-user-plus"></i></button>
+    </div>
+  </div><div class="form-group"><label>Tipo de evento</label><input id="f-evento" placeholder="Casamento, Formatura..." value="${evento||''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>Data do evento</label><input id="f-data" type="date" value="${data||''}" onchange="renderOrcItens()"></div>
+  <div class="form-group"><label>Data devolução</label><input id="f-ret" type="date" value="${ret||''}" onchange="renderOrcItens()"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Local</label><input id="f-local" placeholder="Cidade, bairro..." value="${local||''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>Equipamento</label>
+    <select id="f-eq-sel">${eq.map(e=>`<option value="${e.id}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('')}</select>
+  </div><div class="form-group"><label>Quantidade</label>
+    <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
+    <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
+  </div></div>
+  <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
+  <div class="form-row single"><div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="${frete||0}" min="0" onchange="renderOrcItens()"></div></div>
+  <div id="orc-total" style="display:none" class="total-box"><div class="tlabel">Total estimado</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarOrc()">Gerar orçamento</button>`);
+  setTimeout(renderOrcItens, 50);
+}
+
 function novoOrc(){
   orcItens=[];
   const cl=DB.get('clientes')||[],eq=DB.get('equipamentos')||[];
   if(!cl.length){toast('Cadastre um cliente primeiro',false);return;}
   openModal('Novo orçamento',`
   <div class="form-row"><div class="form-group"><label>Cliente</label>
-    <select id="f-cli">${cl.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}</select>
+    <div style="display:flex;gap:6px">
+      <select id="f-cli" style="flex:1">${cl.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}</select>
+      <button class="btn btn-secondary btn-sm" onclick="novoClienteRapido()" title="Novo cliente" style="flex-shrink:0"><i class="ti ti-user-plus"></i></button>
+    </div>
   </div><div class="form-group"><label>Tipo de evento</label><input id="f-evento" placeholder="Casamento, Formatura..."></div></div>
   <div class="form-row"><div class="form-group"><label>Data do evento</label><input id="f-data" type="date" onchange="renderOrcItens()"></div>
   <div class="form-group"><label>Data devolução</label><input id="f-ret" type="date" onchange="renderOrcItens()"></div></div>
@@ -1015,7 +1137,7 @@ function salvarOrc(){
   const pa=DB.get('pagamentos')||[];
   pa.push({id:Date.now(),orc_num:num,cliente:cli.nome,valor:total,pago:0,metodo:'',status:'pendente',data:novo.criado});
   DB.set('pagamentos',pa);
-  closeModal();toast('Orçamento #'+num+' criado!');pages.orcamentos();
+  closeModal();toast('Orçamento #'+num+' criado!');registrarLog('Novo orçamento', '#'+num+' — '+cli.nome+' — '+brl(total));pages.orcamentos();
 }
 function verOrc(id){
   const o=(DB.get('orcamentos')||[]).find(x=>x.id===id);if(!o)return;
@@ -1045,11 +1167,13 @@ function verOrc(id){
 }
 function updateStatusOrc(id,st){
   const or=DB.get('orcamentos')||[];const i=or.findIndex(x=>x.id===id);
-  if(i>=0){or[i].status=st;DB.set('orcamentos',or);toast('Status atualizado!');}
+  if(i>=0){or[i].status=st;DB.set('orcamentos',or);registrarLog('Status orçamento','#'+(or[i].num||id)+' → '+st);toast('Status atualizado!');}
 }
 function delOrc(id){
   if(!confirm('Excluir orçamento?'))return;
+  const orc_del=(DB.get('orcamentos')||[]).find(x=>x.id===id);
   DB.set('orcamentos',(DB.get('orcamentos')||[]).filter(x=>x.id!==id));
+  registrarLog('Excluir orçamento','#'+(orc_del?.num||id)+' — '+(orc_del?.cliente||''));
   toast('Removido!');pages.orcamentos();
 }
 
@@ -1075,7 +1199,7 @@ function salvarPag(id){
   const pa=DB.get('pagamentos')||[];const i=pa.findIndex(x=>x.id===id);if(i<0)return;
   pa[i].pago=Math.min(pa[i].valor,pa[i].pago+val);pa[i].metodo=met;
   pa[i].status=pa[i].pago>=pa[i].valor?'pago':pa[i].pago>0?'parcial':'pendente';
-  DB.set('pagamentos',pa);closeModal();toast('Pagamento registrado!');pages.pagamentos();
+  DB.set('pagamentos',pa);closeModal();registrarLog('Pagamento registrado','Orç #'+pa[i].orc_num+' — '+brl(val)+' via '+met);toast('Pagamento registrado!');pages.pagamentos();
 }
 
 // ── USUÁRIOS ──────────────────────────────────────────
