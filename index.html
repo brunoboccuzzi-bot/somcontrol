@@ -706,16 +706,34 @@ agenda(){
   for(let i=first-1;i>=0;i--) cells.push({d:dip-i,cur:false});
   for(let d=1;d<=dim;d++) cells.push({d,cur:true});
   while(cells.length%7!==0) cells.push({d:cells.length-dim-first+1,cur:false});
+
+  // Pré-calcular quais dias do mês têm orçamentos (período completo)
+  const diasComOrc={};
+  or.forEach(o=>{
+    if(!o.data_evento) return;
+    const inicio = new Date(o.data_evento+'T12:00');
+    const fim    = new Date((o.data_ret||o.data_evento)+'T12:00');
+    // iterar cada dia do período
+    for(let dt=new Date(inicio); dt<=fim; dt.setDate(dt.getDate()+1)){
+      if(dt.getFullYear()===y && dt.getMonth()===m){
+        const dia = dt.getDate();
+        if(!diasComOrc[dia]) diasComOrc[dia]=[];
+        // evitar duplicatas
+        if(!diasComOrc[dia].find(x=>x.id===o.id)){
+          diasComOrc[dia].push(o);
+        }
+      }
+    }
+  });
   $('content').innerHTML=`
   <div class="section-header"><h2>${meses[m]} ${y}</h2></div>
   <div class="cal-header-g">${dias.map(d=>`<div class="cal-day-name">${d}</div>`).join('')}</div>
   <div class="cal-grid">${cells.map(c=>{
     const today=c.cur&&c.d===now.getDate();
-    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(c.d).padStart(2,'0')}`;
-    const evs=or.filter(o=>o.data_evento===ds);
+    const evs=c.cur?(diasComOrc[c.d]||[]):[];
     return `<div class="cal-day${!c.cur?' other-month':''}${today?' today':''}">
       <div class="day-num">${c.d}</div>
-      ${evs.map(e=>`<div class="cal-event ${e.status==='aprovado'?'green':'amber'}">${e.cliente}</div>`).join('')}
+      ${evs.map(e=>`<div class="cal-event ${e.status==='aprovado'?'green':'amber'}" title="${e.cliente} — ${e.evento}">${e.cliente}</div>`).join('')}
     </div>`;
   }).join('')}</div>
   <div style="display:flex;gap:12px;font-size:12px;color:var(--txt3);margin-top:14px">
