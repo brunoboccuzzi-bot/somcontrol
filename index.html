@@ -119,6 +119,71 @@ input[readonly]{opacity:.6;cursor:default}
 .cor-opt{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .15s}
 #toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:200;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
 #toast.show{transform:translateY(0);opacity:1}
+
+/* ── RESPONSIVO MOBILE ─────────────────────────────── */
+@media (max-width: 768px){
+
+  /* Esconder sidebar, mostrar menu hamburguer */
+  #sidebar{
+    position:fixed;left:-220px;top:0;bottom:0;z-index:50;
+    transition:left .25s ease;box-shadow:4px 0 20px rgba(0,0,0,.4);
+  }
+  #sidebar.open{ left:0; }
+  #overlay-mobile{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:49;
+  }
+  #overlay-mobile.open{ display:block; }
+
+  /* Topbar com botão menu */
+  #topbar{ padding:12px 14px; }
+  #btn-menu{
+    display:flex;align-items:center;justify-content:center;
+    width:36px;height:36px;border-radius:8px;cursor:pointer;
+    background:var(--surface2);border:1px solid var(--border);
+    color:var(--txt);font-size:20px;margin-right:10px;flex-shrink:0;
+  }
+
+  /* Conteúdo ocupa tela toda */
+  #main{ width:100vw; }
+  #content{ padding:14px; }
+
+  /* Tabelas rolam horizontalmente */
+  .table-wrap{ overflow-x:auto;-webkit-overflow-scrolling:touch; }
+  table{ min-width:500px; }
+
+  /* Métricas em 2 colunas */
+  .metrics{ grid-template-columns:1fr 1fr; }
+
+  /* Grid 2 colunas vira 1 */
+  .grid2{ grid-template-columns:1fr; }
+
+  /* Modal ocupa mais espaço */
+  .modal{ width:95vw;max-height:90vh;padding:18px 16px; }
+
+  /* Form rows viram coluna única */
+  .form-row{ grid-template-columns:1fr; }
+
+  /* Calendário menor */
+  .cal-day{ min-height:48px;padding:4px; }
+  .day-num{ font-size:11px; }
+  .cal-event{ font-size:9px;padding:1px 3px; }
+
+  /* Botões menores nas tabelas */
+  td .btn-sm{ padding:4px 7px;font-size:11px; }
+
+  /* Login box */
+  .login-box{ padding:28px 20px; }
+
+  /* Section header empilha */
+  .section-header{ flex-wrap:wrap;gap:10px; }
+  .section-header > div{ flex-wrap:wrap; }
+}
+
+@media (max-width: 400px){
+  .metrics{ grid-template-columns:1fr; }
+  .metric-val{ font-size:20px; }
+}
+#btn-menu{display:none}
 </style>
 </head>
 <body>
@@ -136,6 +201,7 @@ input[readonly]{opacity:.6;cursor:default}
     <button class="login-btn" onclick="doLogin()">Entrar</button>
   </div>
 </div>
+<div id="overlay-mobile" onclick="toggleMenu()"></div>
 <div id="app">
   <div id="sidebar">
     <div id="sidebar-logo"><div class="name">INCA Áudio</div><div class="sub">Sistema Interno</div></div>
@@ -161,7 +227,7 @@ input[readonly]{opacity:.6;cursor:default}
     </div>
   </div>
   <div id="main">
-    <div id="topbar"><h1 id="page-title">Dashboard</h1><div style="display:flex;align-items:center;gap:16px"><span id="sync-status" style="font-size:12px;color:var(--txt3)">Carregando...</span><button class="btn btn-secondary btn-sm" onclick="DB.sincronizarTudo()" title="Sincronizar com Google Sheets" style="padding:5px 10px"><i class="ti ti-refresh"></i></button><div class="top-date" id="top-date"></div></div></div>
+    <div id="topbar"><div id="btn-menu" onclick="toggleMenu()"><i class="ti ti-menu-2"></i></div><h1 id="page-title">Dashboard</h1><div style="display:flex;align-items:center;gap:16px"><span id="sync-status" style="font-size:12px;color:var(--txt3)">Carregando...</span><button class="btn btn-secondary btn-sm" onclick="DB.sincronizarTudo()" title="Sincronizar com Google Sheets" style="padding:5px 10px"><i class="ti ti-refresh"></i></button><div class="top-date" id="top-date"></div></div></div>
     <div id="content"></div>
   </div>
 </div>
@@ -509,6 +575,11 @@ function doLogin(){
   $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
   registrarLog('Login', 'Usuário entrou no sistema'); DB.carregarDoSheets().then(()=>go('dashboard')); go('dashboard');
 }
+function toggleMenu(){
+  const sb=$('sidebar'), ov=$('overlay-mobile');
+  sb?.classList.toggle('open');
+  ov?.classList.toggle('open');
+}
 function doLogout(){
   registrarLog('Logout', 'Usuário saiu do sistema');
   currentUser=null;$('app').classList.remove('visible');$('login-screen').style.display='flex';
@@ -517,6 +588,9 @@ function doLogout(){
   $('nav-log').style.display='none';
 }
 function go(page){
+  // Fechar menu mobile ao navegar
+  $('sidebar')?.classList.remove('open');
+  $('overlay-mobile')?.classList.remove('open');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios','colaboradores','escalas','log'];
   document.querySelectorAll('.nav-item')[idx.indexOf(page)]?.classList.add('active');
