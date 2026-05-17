@@ -256,6 +256,8 @@ const DB={
       let carregou=false;
       for(const aba of ABAS){
         try{
+          // Categorias nunca são carregadas do Sheets — gerenciadas localmente
+          if(aba==='categorias') continue;
           const dados=await gsGet(aba);
           if(Array.isArray(dados)&&dados.length>0){
             const tratados=dados.map(item=>{
@@ -319,9 +321,12 @@ const DB={
     } else {
       try {
         const parsed = JSON.parse(catsRaw);
-        // Detectar se está corrompido (itens com 1 letra ou menos)
-        const corrompido = Array.isArray(parsed) && parsed.length > 0 && 
-                           parsed.every(x => String(x).length <= 1);
+        // Detectar se está corrompido: itens muito curtos ou são objetos de 1 char
+        const corrompido = !Array.isArray(parsed) || 
+          (parsed.length > 0 && parsed.filter(x => {
+            const s = typeof x === 'string' ? x : (x && typeof x === 'object' ? Object.values(x).join('') : String(x));
+            return s.length <= 2;
+          }).length > parsed.length / 2);
         if(corrompido){
           console.warn('Categorias corrompidas detectadas, resetando...');
           localStorage.setItem('sc_categorias', JSON.stringify(CATS_PADRAO));
