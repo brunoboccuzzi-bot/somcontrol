@@ -306,7 +306,15 @@ const DB={
       {id:1,usuario:'admin',senha:'som2026',nome:'Bruno',role:'admin',cor:'#4f8ef7'},
       {id:2,usuario:'gustavo',senha:'gustavo123',nome:'Gustavo',role:'funcionario',cor:'#22d3a5'}
     ]);
-    if(!this.get('categorias'))this.set('categorias',['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro']);
+    // Garantir que categorias seja sempre array
+    const catsExist = this.get('categorias');
+    if(!catsExist){
+      localStorage.setItem('sc_categorias', JSON.stringify(['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro']));
+    } else if(typeof catsExist === 'string' && !catsExist.startsWith('[')){
+      // estava salvo como string simples - corrigir
+      const arr = catsExist.split(',').map(x=>x.trim()).filter(x=>x);
+      localStorage.setItem('sc_categorias', JSON.stringify(arr));
+    }
   }
 };
 DB.init();
@@ -784,7 +792,7 @@ function novoEq(){
   openModal('Novo equipamento',`
   <div class="form-row single"><div class="form-group"><label>Nome</label><input id="f-nome" placeholder="Ex: Caixa JBL PRX 815"></div></div>
   <div class="form-row"><div class="form-group"><label>Categoria</label><select id="f-cat">
-    ${(DB.get('categorias')||['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro']).map(c=>`<option>${c}</option>`).join('')}
+    ${getCats().map(cat=>`<option>${cat}</option>`).join('')}
   </select></div>
   <div class="form-group"><label>Quantidade</label><input id="f-qtd" type="number" value="1" min="0"></div></div>
   <div class="form-row single"><div class="form-group"><label>Diária (R$)</label><input id="f-diaria" type="number" value="100" min="0"></div></div>`,
