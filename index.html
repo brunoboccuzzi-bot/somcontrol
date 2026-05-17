@@ -148,6 +148,8 @@ input[readonly]{opacity:.6;cursor:default}
       <div class="nav-item" onclick="go('pagamentos')"><i class="ti ti-cash"></i>Pagamentos</div>
       <div class="nav-item" onclick="go('relatorios')"><i class="ti ti-chart-bar"></i>Relatórios</div>
       <div class="nav-item" id="nav-usuarios" style="display:none" onclick="go('usuarios')"><i class="ti ti-shield"></i>Usuários</div>
+      <div class="nav-item" onclick="go('colaboradores')"><i class="ti ti-users-group"></i>Colaboradores</div>
+      <div class="nav-item" onclick="go('escalas')"><i class="ti ti-calendar-event"></i>Escalas</div>
       <div class="nav-item" id="nav-log" style="display:none" onclick="go('log')"><i class="ti ti-list-search"></i>Log</div>
     </nav>
     <div id="sidebar-bottom">
@@ -344,6 +346,129 @@ let currentUser=null,orcItens=[];
 
 // Usuários fixos no código — nunca se perdem
 // ── SISTEMA DE LOG ──────────────────────────────────────
+// ── COLABORADORES CRUD ───────────────────────────────
+function novoColab(){
+  openModal('Novo colaborador',`
+  <div class="form-row"><div class="form-group"><label>Nome</label><input id="f-nome" placeholder="Nome completo"></div>
+  <div class="form-group"><label>Função</label><input id="f-funcao" placeholder="Técnico de Som, Roadie..."></div></div>
+  <div class="form-row"><div class="form-group"><label>Telefone</label><input id="f-tel" placeholder="(11) 99999-0000"></div>
+  <div class="form-group"><label>E-mail</label><input id="f-email" type="email" placeholder="email@..."></div></div>
+  <div class="form-row"><div class="form-group"><label>CPF</label><input id="f-cpf" placeholder="000.000.000-00"></div>
+  <div class="form-group"><label>RG</label><input id="f-rg" placeholder="00.000.000-0"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Endereço</label><input id="f-end" placeholder="Rua, número, cidade"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs"></textarea></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarColab(0)">Salvar</button>`);
+}
+function editColab(id){
+  const co=(DB.get('colaboradores')||[]).find(x=>x.id===id);if(!co)return;
+  openModal('Editar colaborador',`
+  <div class="form-row"><div class="form-group"><label>Nome</label><input id="f-nome" value="${co.nome}"></div>
+  <div class="form-group"><label>Função</label><input id="f-funcao" value="${co.funcao||''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>Telefone</label><input id="f-tel" value="${co.tel||''}"></div>
+  <div class="form-group"><label>E-mail</label><input id="f-email" value="${co.email||''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>CPF</label><input id="f-cpf" value="${co.cpf||''}"></div>
+  <div class="form-group"><label>RG</label><input id="f-rg" value="${co.rg||''}"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Endereço</label><input id="f-end" value="${co.endereco||''}"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs">${co.obs||''}</textarea></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarColab(${id})">Salvar</button>`);
+}
+function salvarColab(id){
+  const nome=$('f-nome')?.value?.trim();if(!nome){toast('Nome obrigatório',false);return;}
+  const lista=DB.get('colaboradores')||[];
+  const obj={nome,funcao:$('f-funcao').value,tel:$('f-tel').value,email:$('f-email').value,
+    cpf:$('f-cpf').value,rg:$('f-rg').value,endereco:$('f-end').value,obs:$('f-obs').value};
+  if(id===0){obj.id=Date.now();lista.push(obj);}
+  else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
+  DB.set('colaboradores',lista);
+  registrarLog(id===0?'Novo colaborador':'Editar colaborador',nome);
+  closeModal();toast('Colaborador salvo!');pages.colaboradores();
+}
+function delColab(id){
+  if(!confirm('Excluir este colaborador?'))return;
+  const co=(DB.get('colaboradores')||[]).find(x=>x.id===id);
+  DB.set('colaboradores',(DB.get('colaboradores')||[]).filter(x=>x.id!==id));
+  registrarLog('Excluir colaborador',co?.nome||id);
+  toast('Removido!');pages.colaboradores();
+}
+
+// ── ESCALAS CRUD ─────────────────────────────────────
+function novaEscala(){
+  const orcs=DB.get('orcamentos')||[];
+  const cols=DB.get('colaboradores')||[];
+  if(!cols.length){toast('Cadastre colaboradores primeiro',false);return;}
+  openModal('Nova escala',`
+  <div class="form-row single"><div class="form-group"><label>Orçamento / Evento</label>
+    <select id="f-orc-id">
+      <option value="">— Sem orçamento vinculado —</option>
+      ${orcs.map(o=>`<option value="${o.id}">#${o.num} — ${o.cliente} (${o.evento} · ${o.data_evento?fmtD(o.data_evento):''})</option>`).join('')}
+    </select>
+  </div></div>
+  <div class="form-row single"><div class="form-group"><label>Colaboradores escalados</label>
+    <div id="cols-checks" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;background:var(--surface2);border-radius:8px;padding:10px">
+      ${cols.map(co=>`
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600">
+          <input type="checkbox" id="chk-${co.id}" value="${co.id}" style="width:16px;height:16px">
+          <span>${co.nome}</span>
+          <span class="badge badge-blue" style="margin-left:auto">${co.funcao||'—'}</span>
+        </label>`).join('')}
+    </div>
+  </div></div>
+  <div class="form-row single"><div class="form-group"><label>Observações</label>
+    <textarea id="f-obs" placeholder="Horário de chegada, ponto de encontro..."></textarea>
+  </div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarEscala(0)">Salvar escala</button>`);
+}
+function editEscala(id){
+  const es=(DB.get('escalas')||[]).find(x=>x.id===id);if(!es)return;
+  const orcs=DB.get('orcamentos')||[];
+  const cols=DB.get('colaboradores')||[];
+  openModal('Editar escala',`
+  <div class="form-row single"><div class="form-group"><label>Orçamento / Evento</label>
+    <select id="f-orc-id">
+      <option value="">— Sem orçamento vinculado —</option>
+      ${orcs.map(o=>`<option value="${o.id}"${o.id===es.orc_id?' selected':''}>#${o.num} — ${o.cliente} (${o.evento})</option>`).join('')}
+    </select>
+  </div></div>
+  <div class="form-row single"><div class="form-group"><label>Colaboradores escalados</label>
+    <div id="cols-checks" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;background:var(--surface2);border-radius:8px;padding:10px">
+      ${cols.map(co=>`
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600">
+          <input type="checkbox" id="chk-${co.id}" value="${co.id}" ${(es.colab_ids||[]).includes(co.id)?'checked':''} style="width:16px;height:16px">
+          <span>${co.nome}</span>
+          <span class="badge badge-blue" style="margin-left:auto">${co.funcao||'—'}</span>
+        </label>`).join('')}
+    </div>
+  </div></div>
+  <div class="form-row single"><div class="form-group"><label>Observações</label>
+    <textarea id="f-obs">${es.obs||''}</textarea>
+  </div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarEscala(${id})">Salvar</button>`);
+}
+function salvarEscala(id){
+  const cols=DB.get('colaboradores')||[];
+  const colab_ids=cols.filter(co=>document.getElementById('chk-'+co.id)?.checked).map(co=>co.id);
+  if(!colab_ids.length){toast('Selecione pelo menos um colaborador',false);return;}
+  const orc_id_val=$('f-orc-id')?.value;
+  const orc_id=orc_id_val?parseInt(orc_id_val):null;
+  const lista=DB.get('escalas')||[];
+  const obj={orc_id,colab_ids,obs:$('f-obs')?.value||''};
+  if(id===0){obj.id=Date.now();lista.push(obj);}
+  else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
+  DB.set('escalas',lista);
+  registrarLog(id===0?'Nova escala':'Editar escala','Orç #'+(orc_id||'—'));
+  closeModal();toast('Escala salva!');pages.escalas();
+}
+function delEscala(id){
+  if(!confirm('Excluir esta escala?'))return;
+  DB.set('escalas',(DB.get('escalas')||[]).filter(x=>x.id!==id));
+  registrarLog('Excluir escala',String(id));
+  toast('Removida!');pages.escalas();
+}
+
 function registrarLog(acao, detalhes=''){
   try {
     const logs = JSON.parse(localStorage.getItem('sc_logs')||'[]');
@@ -393,9 +518,9 @@ function doLogout(){
 }
 function go(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios','log'];
+  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','colaboradores','escalas','usuarios','log'];
   document.querySelectorAll('.nav-item')[idx.indexOf(page)]?.classList.add('active');
-  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',usuarios:'Usuários',log:'Log de Atividades'};
+  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',usuarios:'Usuários',log:'Log de Atividades'};
   $('page-title').textContent=titles[page]||page;
   pages[page]?.();
 }
@@ -789,6 +914,57 @@ relatorios(){
     </div>
   </div>`;
 },
+colaboradores(){
+  const col=DB.get('colaboradores')||[];
+  $('content').innerHTML=`
+  <div class="section-header"><h2>${col.length} colaboradores</h2>
+    <button class="btn btn-primary" onclick="novoColab()"><i class="ti ti-plus"></i>Novo colaborador</button></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Nome</th><th>Função</th><th>Telefone</th><th>E-mail</th><th>CPF</th><th>RG</th><th></th></tr></thead>
+    <tbody>${col.length?col.map(co=>`<tr>
+      <td><strong>${co.nome}</strong></td>
+      <td><span class="badge badge-blue">${co.funcao||'—'}</span></td>
+      <td>${co.tel||'—'}</td>
+      <td>${co.email||'—'}</td>
+      <td>${co.cpf||'—'}</td>
+      <td>${co.rg||'—'}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-secondary btn-sm" onclick="editColab(${co.id})"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="delColab(${co.id})"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`).join(''):'<tr><td colspan="7"><div class="empty"><i class="ti ti-users-group"></i><p>Nenhum colaborador cadastrado.</p></div></td></tr>'}
+    </tbody></table></div>`;
+},
+
+escalas(){
+  const escalas=DB.get('escalas')||[];
+  const orcs=DB.get('orcamentos')||[];
+  const cols=DB.get('colaboradores')||[];
+  $('content').innerHTML=`
+  <div class="section-header"><h2>${escalas.length} escalas</h2>
+    <button class="btn btn-primary" onclick="novaEscala()"><i class="ti ti-plus"></i>Nova escala</button></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Evento / Cliente</th><th>Data</th><th>Colaboradores</th><th>Observações</th><th></th></tr></thead>
+    <tbody>${escalas.length?escalas.slice().reverse().map(es=>{
+      const orc=orcs.find(o=>o.id===es.orc_id)||{};
+      const nomes=(es.colab_ids||[]).map(id=>{
+        const co=cols.find(c=>c.id===id);
+        return co?`<span class="badge badge-blue" style="margin:2px">${co.nome}</span>`:'';
+      }).join('');
+      return `<tr>
+        <td><strong>${orc.cliente||es.evento||'—'}</strong><br><span style="font-size:11px;color:var(--txt3)">${orc.evento||''}</span></td>
+        <td>${orc.data_evento?fmtD(orc.data_evento):es.data||'—'}</td>
+        <td>${nomes||'<span style="color:var(--txt3)">Nenhum escalado</span>'}</td>
+        <td style="font-size:12px;color:var(--txt3)">${es.obs||'—'}</td>
+        <td style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" onclick="editEscala(${es.id})"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="delEscala(${es.id})"><i class="ti ti-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join(''):'<tr><td colspan="5"><div class="empty"><i class="ti ti-calendar-event"></i><p>Nenhuma escala criada.</p></div></td></tr>'}
+    </tbody></table></div>`;
+},
+
 log(){
   if(currentUser?.role!=='admin'){$('content').innerHTML='<div class="empty"><i class="ti ti-lock"></i><p>Acesso restrito.</p></div>';return;}
   const logs=JSON.parse(localStorage.getItem('sc_logs')||'[]');
