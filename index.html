@@ -292,6 +292,13 @@ const DB={
       const el=$('sync-status');
       if(el){el.textContent='Salvando...';el.style.color='var(--amber)';}
       for(const aba of ABAS){
+        if(aba==='categorias'){
+          // Categorias: converter de array de strings para array de objetos
+          const cats=getCats();
+          const comoObjetos=cats.map(cat=>({categoria:cat}));
+          await gsPost(aba,comoObjetos);
+          continue;
+        }
         const dados=this.get(aba);
         if(dados) await gsPost(aba,dados);
       }
@@ -303,7 +310,7 @@ const DB={
   },
   init(){
     if(!this.get('usuarios'))this.set('usuarios',[
-      {id:1,usuario:'admin',senha:'som2026',nome:'Bruno',role:'admin',cor:'#4f8ef7'},
+      {id:1,usuario:'bruno',senha:'294700',nome:'Bruno',role:'admin',cor:'#4f8ef7'},
       {id:2,usuario:'gustavo',senha:'gustavo123',nome:'Gustavo',role:'funcionario',cor:'#22d3a5'}
     ]);
     // Garantir que categorias seja sempre array
@@ -831,8 +838,8 @@ function getCats(){
       return parsed.map(x=>{
         if(typeof x==='string') return x.trim();
         if(typeof x==='object'&&x!==null){
-          // vindo do Sheets como objeto {categoria:'Caixa Ativa'}
-          return Object.values(x).find(v=>v&&typeof v==='string')||'';
+          // vindo do Sheets como {categoria:'Caixa Ativa'}
+          return x.categoria||Object.values(x).find(v=>v&&typeof v==='string')||'';
         }
         return String(x).trim();
       }).filter(x=>x.length>0);
@@ -847,11 +854,12 @@ function getCats(){
   }
 }
 function saveCats(arr){
-  // Salva direto no localStorage como array de strings limpas
+  // Salva como array de strings no localStorage
   const limpo = arr.map(x=>String(x).trim()).filter(x=>x.length>0);
   localStorage.setItem('sc_categorias', JSON.stringify(limpo));
-  // Sincroniza com Sheets em background
-  gsPost('categorias', limpo).catch(e=>console.warn('Sync cats:',e));
+  // Sincroniza com Sheets convertendo para array de objetos
+  const comoObjetos = limpo.map(cat => ({categoria: cat}));
+  gsPost('categorias', comoObjetos).catch(e=>console.warn('Sync cats:',e));
 }
 function renderCatsList(){
   const cats=getCats();
