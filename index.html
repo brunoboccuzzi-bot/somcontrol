@@ -765,51 +765,50 @@ function salvarEq(id){
   DB.set('equipamentos',lista);closeModal();toast('Equipamento salvo!');pages.equipamentos();
 }
 
+function getCats(){
+  const raw=DB.get('categorias')||['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
+  // garantir que cada item é string (pode vir como objeto do Sheets)
+  return raw.map(x=>typeof x==='object'&&x!==null?(x.categoria||x.nome||x.value||Object.values(x)[0]||''):String(x||'')).filter(x=>x);
+}
+function renderCatsList(){
+  const cats=getCats();
+  const el=$('cats-list');
+  if(!el)return;
+  el.innerHTML=cats.length?cats.map((cat,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1;font-size:13px;font-weight:600">${cat}</span>
+      <button class="btn btn-danger btn-sm" onclick="delCat(${i})"><i class="ti ti-trash"></i></button>
+    </div>`).join(''):'<div style="color:var(--txt3);font-size:13px;padding:12px 0">Nenhuma categoria cadastrada.</div>';
+}
 function gerenciarCategorias(){
-  const cats=DB.get('categorias')||['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
-  function renderCats(){
-    const cats=DB.get('categorias')||[];
-    $('cats-list').innerHTML=cats.map((c,i)=>`
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <span style="flex:1;font-size:13px">${c}</span>
-        <button class="btn btn-danger btn-sm" onclick="delCat(${i})"><i class="ti ti-trash"></i></button>
-      </div>`).join('');
-  }
-  openModal('Gerenciar categorias',`
-  <div id="cats-list"></div>
+  openModal('Categorias de equipamento',`
+  <div id="cats-list"><div style="color:var(--txt3);font-size:13px">Carregando...</div></div>
   <div style="display:flex;gap:8px;margin-top:14px">
-    <input id="f-nova-cat" placeholder="Nova categoria..." style="flex:1" onkeydown="if(event.key==='Enter')addCat()">
+    <input id="f-nova-cat" placeholder="Nome da nova categoria..." style="flex:1" onkeydown="if(event.key==='Enter')addCat()">
     <button class="btn btn-primary" onclick="addCat()"><i class="ti ti-plus"></i>Adicionar</button>
   </div>`,
   `<button class="btn btn-secondary" onclick="closeModal();pages.equipamentos()">Fechar</button>`);
-  renderCats();
+  setTimeout(renderCatsList, 50);
 }
 function addCat(){
   const val=$('f-nova-cat')?.value?.trim();
   if(!val){toast('Digite o nome da categoria',false);return;}
-  const cats=DB.get('categorias')||[];
-  if(cats.includes(val)){toast('Categoria já existe',false);return;}
-  cats.push(val);DB.set('categorias',cats);
+  const cats=getCats();
+  if(cats.map(x=>x.toLowerCase()).includes(val.toLowerCase())){toast('Categoria já existe',false);return;}
+  cats.push(val);
+  DB.set('categorias',cats);
   $('f-nova-cat').value='';
-  const cats2=DB.get('categorias')||[];
-  $('cats-list').innerHTML=cats2.map((c,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span style="flex:1;font-size:13px">${c}</span>
-      <button class="btn btn-danger btn-sm" onclick="delCat(${i})"><i class="ti ti-trash"></i></button>
-    </div>`).join('');
+  renderCatsList();
   toast('Categoria adicionada!');
 }
 function delCat(idx){
-  const cats=DB.get('categorias')||[];
-  cats.splice(idx,1);DB.set('categorias',cats);
-  const cats2=DB.get('categorias')||[];
-  $('cats-list').innerHTML=cats2.map((c,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span style="flex:1;font-size:13px">${c}</span>
-      <button class="btn btn-danger btn-sm" onclick="delCat(${i})"><i class="ti ti-trash"></i></button>
-    </div>`).join('');
+  const cats=getCats();
+  cats.splice(idx,1);
+  DB.set('categorias',cats);
+  renderCatsList();
   toast('Categoria removida!');
 }
+
 function delEq(id){
   if(!confirm('Excluir?'))return;
   DB.set('equipamentos',(DB.get('equipamentos')||[]).filter(x=>x.id!==id));
