@@ -518,7 +518,7 @@ function doLogout(){
 }
 function go(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','colaboradores','escalas','usuarios','log'];
+  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios','colaboradores','escalas','log'];
   document.querySelectorAll('.nav-item')[idx.indexOf(page)]?.classList.add('active');
   const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',usuarios:'Usuários',log:'Log de Atividades'};
   $('page-title').textContent=titles[page]||page;
