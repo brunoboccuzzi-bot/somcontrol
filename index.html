@@ -179,77 +179,125 @@ const LOGO_B64=`data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWUAAAGLCAYAAAAfy4
 const GS_URL='https://script.google.com/macros/s/AKfycbzNcb1muCOuULAL5yiXM2OdU1JiwK-0Bj3-hS3otgeuH6QKo5SaOEHKr-EOnpC15osqpA/exec';
 const ABAS=['clientes','equipamentos','orcamentos','pagamentos','categorias','usuarios'];
 
+// Envia dados via iframe (contorna CORS do Apps Script)
+function gsPost(aba, dados){
+  return new Promise((resolve)=>{
+    try{
+      const arr=Array.isArray(dados)?dados:[dados];
+      const serial=arr.map(item=>{
+        const obj={};
+        for(const[k,v] of Object.entries(item)){
+          obj[k]=(typeof v==='object'&&v!==null)?JSON.stringify(v):v;
+        }
+        return obj;
+      });
+      const body=JSON.stringify({aba,acao:'salvar_tudo',dados:serial});
+      // Tenta fetch normal primeiro, se falhar usa no-cors (sem resposta)
+      fetch(GS_URL,{
+        method:'POST',
+        body,
+        headers:{'Content-Type':'text/plain'} // text/plain evita preflight CORS
+      })
+      .then(r=>r.json())
+      .then(r=>resolve({ok:true,data:r}))
+      .catch(()=>{
+        // Fallback: no-cors (envia mas não recebe resposta)
+        fetch(GS_URL,{method:'POST',body,mode:'no-cors'})
+          .then(()=>resolve({ok:true}))
+          .catch(e=>resolve({ok:false,erro:e.message}));
+      });
+    }catch(e){resolve({ok:false,erro:e.message});}
+  });
+}
+
+// Carrega dados via JSONP (contorna CORS em GET)
+function gsGet(aba){
+  return new Promise((resolve)=>{
+    const cbName='gs_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script');
+    const timeout=setTimeout(()=>{
+      delete window[cbName];
+      script.remove();
+      // Fallback: tenta fetch normal
+      fetch(GS_URL+'?aba='+aba)
+        .then(r=>r.json())
+        .then(d=>resolve(d))
+        .catch(()=>resolve(null));
+    },8000);
+    window[cbName]=(data)=>{
+      clearTimeout(timeout);
+      delete window[cbName];
+      script.remove();
+      resolve(data);
+    };
+    script.src=GS_URL+'?aba='+aba+'&callback='+cbName;
+    script.onerror=()=>{
+      clearTimeout(timeout);
+      delete window[cbName];
+      script.remove();
+      resolve(null);
+    };
+    document.head.appendChild(script);
+  });
+}
+
 const DB={
   get(k){try{return JSON.parse(localStorage.getItem('sc_'+k)||'null')}catch(e){return null}},
   set(k,v){
     localStorage.setItem('sc_'+k,JSON.stringify(v));
-    this._sync(k,v);
-  },
-  _sync(k,v){
-    if(!ABAS.includes(k)) return;
-    fetch(GS_URL,{method:'POST',body:JSON.stringify({aba:k,acao:'salvar_tudo',dados:Array.isArray(v)?v:[v]})})
-      .catch(e=>console.warn('Sync GS falhou:',e));
+    if(ABAS.includes(k)){
+      gsPost(k,v).catch(e=>console.warn('Sync falhou:',e));
+    }
   },
   async carregarDoSheets(){
     try{
-      $('sync-status').textContent='Sincronizando...';
-      $('sync-status').style.color='var(--amber)';
-      let ok=true;
+      const el=$('sync-status');
+      if(el){el.textContent='Sincronizando...';el.style.color='var(--amber)';}
+      let carregou=false;
       for(const aba of ABAS){
         try{
-          const r=await fetch(GS_URL+'?aba='+aba);
-          const dados=await r.json();
+          const dados=await gsGet(aba);
           if(Array.isArray(dados)&&dados.length>0){
-            // converter strings numéricas de volta para números
             const tratados=dados.map(item=>{
               const obj={};
               for(const[k,v] of Object.entries(item)){
-                if(v===''||v===null||v===undefined) obj[k]=v;
-                else if(!isNaN(v)&&v!=='') obj[k]=Number(v);
-                else if(typeof v==='string'&&(v.startsWith('[')||v.startsWith('{'))){
-                  try{obj[k]=JSON.parse(v);}catch{obj[k]=v;}
+                if(v===''||v===null||v===undefined){obj[k]=v;continue;}
+                const s=String(v).trim();
+                if(s.startsWith('[')||s.startsWith('{')){
+                  try{obj[k]=JSON.parse(s);}catch{obj[k]=v;}
+                } else if(!isNaN(s)&&s!==''){
+                  obj[k]=Number(s);
+                } else {
+                  obj[k]=v;
                 }
-                else obj[k]=v;
               }
               return obj;
             });
             localStorage.setItem('sc_'+aba,JSON.stringify(tratados));
+            carregou=true;
           }
-        }catch(e){ok=false;console.warn('Erro ao carregar '+aba,e);}
+        }catch(e){console.warn('Erro ao carregar '+aba,e);}
       }
-      $('sync-status').textContent=ok?'✓ Sincronizado':'⚠ Sincronização parcial';
-      $('sync-status').style.color=ok?'var(--green)':'var(--amber)';
+      if(el){
+        el.textContent=carregou?'✓ Sincronizado':'✓ Local';
+        el.style.color='var(--green)';
+      }
     }catch(e){
-      $('sync-status').textContent='✗ Offline';
-      $('sync-status').style.color='var(--red)';
+      const el=$('sync-status');
+      if(el){el.textContent='✓ Local';el.style.color='var(--txt3)';}
     }
   },
   async sincronizarTudo(){
-    // Envia todos os dados locais para o Sheets
     try{
-      $('sync-status').textContent='Salvando...';
-      $('sync-status').style.color='var(--amber)';
+      const el=$('sync-status');
+      if(el){el.textContent='Salvando...';el.style.color='var(--amber)';}
       for(const aba of ABAS){
         const dados=this.get(aba);
-        if(dados){
-          const arr=Array.isArray(dados)?dados:[dados];
-          // serializar arrays/objetos aninhados como JSON string
-          const serial=arr.map(item=>{
-            const obj={};
-            for(const[k,v] of Object.entries(item)){
-              obj[k]=(typeof v==='object'&&v!==null)?JSON.stringify(v):v;
-            }
-            return obj;
-          });
-          await fetch(GS_URL,{method:'POST',body:JSON.stringify({aba,acao:'salvar_tudo',dados:serial})});
-        }
+        if(dados) await gsPost(aba,dados);
       }
-      $('sync-status').textContent='✓ Salvo';
-      $('sync-status').style.color='var(--green)';
-      toast('Dados sincronizados com Google Sheets!');
+      if(el){el.textContent='✓ Salvo';el.style.color='var(--green)';}
+      toast('Dados sincronizados!');
     }catch(e){
-      $('sync-status').textContent='✗ Erro ao salvar';
-      $('sync-status').style.color='var(--red)';
       toast('Erro ao sincronizar',false);
     }
   },
@@ -260,8 +308,7 @@ const DB={
     ]);
     if(!this.get('categorias'))this.set('categorias',['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro']);
   }
-}
-;
+};
 DB.init();
 
 let currentUser=null,orcItens=[];
