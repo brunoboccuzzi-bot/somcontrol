@@ -380,7 +380,7 @@ function doLogin(){
   $('sb-nome').textContent=found.nome;
   $('sb-role').textContent=found.role==='admin'?'Administrador':'Funcionário';
   $('nav-usuarios').style.display=found.role==='admin'?'flex':'none';
-  $('nav-log').style.display=found.usuario==='bruno'?'flex':'none';
+  $('nav-log').style.display=found.role==='admin'?'flex':'none';
   $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
   registrarLog('Login', 'Usuário entrou no sistema'); DB.carregarDoSheets().then(()=>go('dashboard')); go('dashboard');
 }
@@ -772,7 +772,7 @@ relatorios(){
   </div>`;
 },
 log(){
-  if(currentUser?.usuario!=='bruno'){$('content').innerHTML='<div class="empty"><i class="ti ti-lock"></i><p>Acesso restrito.</p></div>';return;}
+  if(currentUser?.role!=='admin'){$('content').innerHTML='<div class="empty"><i class="ti ti-lock"></i><p>Acesso restrito.</p></div>';return;}
   const logs=JSON.parse(localStorage.getItem('sc_logs')||'[]');
   $('content').innerHTML=`
   <div class="section-header">
