@@ -781,23 +781,35 @@ clientes(){
       <button class="btn btn-danger btn-sm" onclick="delCliente(${c.id})"><i class="ti ti-trash"></i></button>
     </td></tr>`).join(''):'<tr><td colspan="6"><div class="empty"><i class="ti ti-users"></i><p>Nenhum cliente.</p></div></td></tr>'}</tbody></table></div>`;
 },
-equipamentos(){
+equipamentos(catFiltro=''){
   const eq=DB.get('equipamentos')||[];
+  const cats=[...new Set(eq.map(e=>e.cat).filter(x=>x))].sort();
+  const filtrados=catFiltro?eq.filter(e=>e.cat===catFiltro):eq;
   $('content').innerHTML=`
-  <div class="section-header"><h2>${eq.length} equipamentos</h2>
-    <div style="display:flex;gap:8px">
+  <div class="section-header"><h2>${filtrados.length} equipamento${filtrados.length!==1?'s':''}</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <select onchange="pages.equipamentos(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--txt);cursor:pointer">
+        <option value="" ${!catFiltro?'selected':''}>Todas as categorias</option>
+        ${cats.map(cat=>`<option value="${cat}" ${catFiltro===cat?'selected':''}>${cat}</option>`).join('')}
+      </select>
       <button class="btn btn-secondary" onclick="gerenciarCategorias()"><i class="ti ti-tag"></i>Categorias</button>
       <button class="btn btn-primary" onclick="novoEq()"><i class="ti ti-plus"></i>Novo equipamento</button>
     </div></div>
+  ${catFiltro?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;color:var(--txt3)">
+    Filtrando por: <span class="badge badge-blue">${catFiltro}</span>
+    <button class="btn btn-secondary btn-sm" onclick="pages.equipamentos('')">✕ Limpar</button>
+  </div>`:''}
   <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Categoria</th><th>Qtd</th><th>Diária</th><th>Status</th><th></th></tr></thead>
-  <tbody>${eq.map(e=>`<tr><td><strong>${e.nome}</strong></td><td>${e.cat}</td>
+  <tbody>${filtrados.length?filtrados.map(e=>`<tr><td><strong>${e.nome}</strong></td>
+    <td><span class="badge badge-gray">${e.cat}</span></td>
     <td><span class="badge ${e.qtd>2?'badge-green':e.qtd>0?'badge-amber':'badge-red'}">${e.qtd}</span></td>
     <td>${brl(e.diaria)}</td>
     <td><span class="badge ${e.qtd>0?'badge-green':'badge-red'}">${e.qtd>0?'disponível':'indisponível'}</span></td>
     <td style="display:flex;gap:6px">
       <button class="btn btn-secondary btn-sm" onclick="editEq(${e.id})"><i class="ti ti-edit"></i></button>
       <button class="btn btn-danger btn-sm" onclick="delEq(${e.id})"><i class="ti ti-trash"></i></button>
-    </td></tr>`).join('')}</tbody></table></div>`;
+    </td></tr>`).join(''):'<tr><td colspan="6"><div class="empty"><i class="ti ti-device-speaker"></i><p>Nenhum equipamento nesta categoria.</p></div></td></tr>'}
+  </tbody></table></div>`;
 },
 orcamentos(){
   const or=DB.get('orcamentos')||[];
