@@ -821,26 +821,37 @@ function salvarEq(id){
 }
 
 function getCats(){
-  const raw=DB.get('categorias');
-  const padrao=['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
-  if(!raw) return padrao;
-  // Pode vir como string JSON, array, ou string simples
-  let arr=raw;
-  if(typeof raw==='string'){
-    try{ arr=JSON.parse(raw); }
-    catch(e){ arr=raw.split(',').map(x=>x.trim()).filter(x=>x); }
-  }
-  if(!Array.isArray(arr)) return padrao;
-  // Cada item pode ser string ou objeto vindo do Sheets
-  return arr.map(x=>{
-    if(typeof x==='string') return x.trim();
-    if(typeof x==='object'&&x!==null){
-      // Sheets retorna objetos com chave = nome da coluna
-      const vals=Object.values(x).filter(v=>v&&typeof v==='string');
-      return vals[0]||'';
+  // Lê direto do localStorage para evitar qualquer conversão
+  try {
+    const raw = localStorage.getItem('sc_categorias');
+    if(!raw) return ['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
+    const parsed = JSON.parse(raw);
+    // Se for array de strings — caso normal
+    if(Array.isArray(parsed)){
+      return parsed.map(x=>{
+        if(typeof x==='string') return x.trim();
+        if(typeof x==='object'&&x!==null){
+          // vindo do Sheets como objeto {categoria:'Caixa Ativa'}
+          return Object.values(x).find(v=>v&&typeof v==='string')||'';
+        }
+        return String(x).trim();
+      }).filter(x=>x.length>0);
     }
-    return String(x||'').trim();
-  }).filter(x=>x.length>0);
+    // Se for string simples
+    if(typeof parsed==='string'){
+      return parsed.split(',').map(x=>x.trim()).filter(x=>x);
+    }
+    return ['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
+  } catch(e) {
+    return ['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
+  }
+}
+function saveCats(arr){
+  // Salva direto no localStorage como array de strings limpas
+  const limpo = arr.map(x=>String(x).trim()).filter(x=>x.length>0);
+  localStorage.setItem('sc_categorias', JSON.stringify(limpo));
+  // Sincroniza com Sheets em background
+  gsPost('categorias', limpo).catch(e=>console.warn('Sync cats:',e));
 }
 function renderCatsList(){
   const cats=getCats();
@@ -868,7 +879,7 @@ function addCat(){
   const cats=getCats();
   if(cats.map(x=>x.toLowerCase()).includes(val.toLowerCase())){toast('Categoria já existe',false);return;}
   cats.push(val);
-  DB.set('categorias',cats);
+  saveCats(cats);
   $('f-nova-cat').value='';
   renderCatsList();
   toast('Categoria adicionada!');
@@ -876,7 +887,7 @@ function addCat(){
 function delCat(idx){
   const cats=getCats();
   cats.splice(idx,1);
-  DB.set('categorias',cats);
+  saveCats(cats);
   renderCatsList();
   toast('Categoria removida!');
 }
