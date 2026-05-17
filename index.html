@@ -309,10 +309,8 @@ const DB={
     }
   },
   init(){
-    if(!this.get('usuarios'))this.set('usuarios',[
-      {id:1,usuario:'bruno',senha:'294700',nome:'Bruno',role:'admin',cor:'#4f8ef7'},
-      {id:2,usuario:'gustavo',senha:'gustavo123',nome:'Gustavo',role:'funcionario',cor:'#22d3a5'}
-    ]);
+    // Usuários gerenciados pelo painel — localStorage é opcional
+    // Os USUARIOS_FIXOS garantem acesso mesmo sem localStorage
     // Garantir que categorias seja sempre array de strings completas
     const catsRaw = localStorage.getItem('sc_categorias');
     const CATS_PADRAO = ['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
@@ -338,9 +336,16 @@ DB.init();
 
 let currentUser=null,orcItens=[];
 
+// Usuários fixos no código — nunca se perdem
+const USUARIOS_FIXOS=[
+  {id:1,usuario:'bruno',senha:'294700',nome:'Bruno',role:'admin',cor:'#4f8ef7'},
+  {id:2,usuario:'gustavo',senha:'gustavo123',nome:'Gustavo',role:'funcionario',cor:'#22d3a5'}
+];
 function doLogin(){
   const u=$('inp-user').value.trim().toLowerCase(),p=$('inp-pass').value;
-  const found=(DB.get('usuarios')||[]).find(x=>x.usuario.toLowerCase()===u&&x.senha===p);
+  // Primeiro tenta usuários fixos, depois localStorage
+  const found=USUARIOS_FIXOS.find(x=>x.usuario.toLowerCase()===u&&x.senha===p)
+    || (DB.get('usuarios')||[]).find(x=>x.usuario.toLowerCase()===u&&x.senha===p);
   if(!found){$('login-err').style.display='block';$('inp-pass').value='';return;}
   currentUser=found;
   $('login-screen').style.display='none';
@@ -724,7 +729,9 @@ relatorios(){
 },
 usuarios(){
   if(currentUser?.role!=='admin'){$('content').innerHTML='<div class="empty"><i class="ti ti-lock"></i><p>Acesso restrito.</p></div>';return;}
-  const us=DB.get('usuarios')||[];
+  // Mescla usuários fixos com extras do localStorage
+  const extras=(DB.get('usuarios')||[]).filter(u=>!USUARIOS_FIXOS.find(f=>f.usuario===u.usuario));
+  const us=[...USUARIOS_FIXOS,...extras];
   $('content').innerHTML=`
   <div class="section-header"><h2>${us.length} usuários</h2>
     <button class="btn btn-primary" onclick="novoUsuario()"><i class="ti ti-plus"></i>Novo usuário</button></div>
