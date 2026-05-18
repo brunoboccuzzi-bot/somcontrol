@@ -1188,6 +1188,7 @@ equipamentos(catFiltro=''){
     <td>${brl(e.diaria)}</td>
     <td><span class="badge ${e.qtd>0?'badge-green':'badge-red'}">${e.qtd>0?'disponível':'indisponível'}</span></td>
     <td style="display:flex;gap:6px">
+      <button class="btn btn-secondary btn-sm" onclick="verInfoEq(${e.id})" title="Ver informações"><i class="ti ti-info-circle"></i></button>
       <button class="btn btn-secondary btn-sm" onclick="editEq(${e.id})"><i class="ti ti-edit"></i></button>
       <button class="btn btn-danger btn-sm" onclick="delEq(${e.id})"><i class="ti ti-trash"></i></button>
     </td></tr>`).join(''):'<tr><td colspan="6"><div class="empty"><i class="ti ti-device-speaker"></i><p>Nenhum equipamento nesta categoria.</p></div></td></tr>'}
@@ -1481,7 +1482,18 @@ function novoEq(){
     ${getCats().map(cat=>`<option>${cat}</option>`).join('')}
   </select></div>
   <div class="form-group"><label>Quantidade</label><input id="f-qtd" type="number" value="1" min="0"></div></div>
-  <div class="form-row single"><div class="form-group"><label>Diária (R$)</label><input id="f-diaria" type="number" value="100" min="0"></div></div>`,
+  <div class="form-row single"><div class="form-group"><label>Diária (R$)</label><input id="f-diaria" type="number" value="100" min="0"></div></div>
+  <div style="border-top:1px solid var(--border);margin:12px 0 8px"></div>
+  <div style="cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--txt2);font-size:13px;font-weight:700;margin-bottom:10px" onclick="toggleInfoEq()">
+    <i class="ti ti-info-circle"></i> Informações adicionais (opcional)
+    <i class="ti ti-chevron-down" id="icon-info-eq" style="margin-left:auto;transition:transform .2s"></i>
+  </div>
+  <div id="info-eq-extra" style="display:none">
+    <div class="form-row"><div class="form-group"><label>Número de série</label><input id="f-serie" placeholder="SN-000000"></div>
+    <div class="form-group"><label>Data de compra</label><input id="f-dtcompra" type="date"></div></div>
+    <div class="form-row single"><div class="form-group"><label>Valor de compra (R$)</label><input id="f-vlcompra" type="number" min="0" placeholder="0,00"></div></div>
+    <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs-eq" placeholder="Estado de conservação, histórico..."></textarea></div></div>
+  </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarEq(0)">Salvar</button>`);
 }
@@ -1705,6 +1717,54 @@ function novoOrc(){
 function toggleAvulso(val){
   const row=$('row-avulso');
   if(row) row.style.display=val?'none':'grid';
+}
+function toggleInfoEq(){
+  const div=$('info-eq-extra');
+  const icon=$('icon-info-eq');
+  if(!div)return;
+  const aberto=div.style.display==='block';
+  div.style.display=aberto?'none':'block';
+  if(icon) icon.style.transform=aberto?'':'rotate(180deg)';
+}
+function verInfoEq(id){
+  const e=(DB.get('equipamentos')||[]).find(x=>x.id===id);if(!e)return;
+  const temInfo=e.serie||e.dt_compra||e.vl_compra||e.obs_eq;
+  openModal('Informações — '+e.nome,`
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Categoria</div>
+        <div style="font-size:14px;font-weight:700">${e.cat||'—'}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Quantidade</div>
+        <div style="font-size:14px;font-weight:700">${e.qtd} unidade(s)</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Diária</div>
+        <div style="font-size:14px;font-weight:700;color:var(--green)">${brl(e.diaria)}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Nº de Série</div>
+        <div style="font-size:14px;font-weight:700">${e.serie||'—'}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Data de compra</div>
+        <div style="font-size:14px;font-weight:700">${e.dt_compra?fmtD(e.dt_compra):'—'}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Valor de compra</div>
+        <div style="font-size:14px;font-weight:700">${e.vl_compra?brl(e.vl_compra):'—'}</div>
+      </div>
+    </div>
+    ${e.obs_eq?`<div style="background:var(--surface2);border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:var(--txt3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Observações</div>
+      <div style="font-size:13px">${e.obs_eq}</div>
+    </div>`:''}
+    ${!temInfo?'<div style="text-align:center;color:var(--txt3);padding:20px">Nenhuma informação adicional cadastrada.</div>':''}
+  </div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+   <button class="btn btn-primary" onclick="closeModal();editEq(${id})"><i class="ti ti-edit"></i>Editar</button>`);
 }
 function filtrarEqOrc(){
   const cat=$('f-cat-filtro')?.value;
