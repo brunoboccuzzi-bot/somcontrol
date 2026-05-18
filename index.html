@@ -596,20 +596,11 @@ function conectarDrive(){
 
 function getGdriveToken(){
   return new Promise((resolve, reject)=>{
-    if(gdriveToken && Date.now() < gdriveTokenExpiry){ resolve(gdriveToken); return; }
-    try{
-      const client = google.accounts.oauth2.initTokenClient({
-        client_id: GDRIVE_CLIENT_ID,
-        scope: GDRIVE_SCOPE,
-        callback:(resp)=>{
-          if(resp.error){ reject(resp.error); return; }
-          gdriveToken = resp.access_token;
-          gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
-          resolve(gdriveToken);
-        }
-      });
-      client.requestAccessToken({prompt:''});
-    }catch(e){ reject(e); }
+    if(gdriveToken && Date.now() < gdriveTokenExpiry){
+      resolve(gdriveToken); return;
+    }
+    // Token expirou ou não existe — rejeitar para não abrir popup inesperado
+    reject('Token Drive não disponível. Clique em Conectar Drive.');
   });
 }
 
@@ -652,6 +643,11 @@ async function garantirPastaRegistros(){
 }
 
 async function uploadFotoDrive(base64data, nomeArquivo, legenda){
+  // Verificar se tem token antes de qualquer coisa
+  if(!gdriveToken || Date.now() >= gdriveTokenExpiry){
+    console.warn('Drive: sem token válido. Conecte o Drive primeiro.');
+    return null;
+  }
   try{
     const res = await garantirPastaRegistros();
     const token = res.token;
@@ -803,7 +799,11 @@ function salvarRegistro(){
       }catch(err){
         console.warn('Drive falhou:',err);
         registrarLog('Registro salvo localmente',leg||nomeArq);
-        toast('Salvo localmente (faça login no Drive)',true);
+        if(String(err).includes('Token')){
+          toast('⚠️ Conecte o Drive antes de tirar a foto',false);
+        } else {
+          toast('Salvo localmente (erro no Drive)',true);
+        }
       }
     };
     img.src=e.target.result;
