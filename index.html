@@ -1715,21 +1715,56 @@ function filtrarEqOrc(){
   const vistos2={};
   sel.innerHTML=filtrados.filter(e=>{if(vistos2[e.nome])return false;vistos2[e.nome]=true;return true;}).map(e=>`<option value="${e.id}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');
 }
+// Calcula estoque disponível para um equipamento em um período
+function estoqueDisponivel(nomeEq, dataInicio, dataFim, orcIdIgnorar=null){
+  const eq=DB.get('equipamentos')||[];
+  const orcs=DB.get('orcamentos')||[];
+  const estoqueTotal=eq.filter(x=>x.nome===nomeEq).reduce((s,x)=>s+parseInt(x.qtd||0),0);
+  if(!dataInicio||!dataFim) return {total:estoqueTotal, usado:0, disponivel:estoqueTotal, conflitos:[]};
+  const d1=new Date(dataInicio+'T12:00');
+  const d2=new Date(dataFim+'T12:00');
+  // Verificar orçamentos aprovados/pendentes que se sobrepõem ao período
+  let totalUsado=0;
+  const conflitos=[];
+  orcs.forEach(o=>{
+    if(orcIdIgnorar && o.id===orcIdIgnorar) return;
+    if(o.status==='cancelado') return;
+    if(!o.data_evento||!o.data_ret) return;
+    const oInicio=new Date(o.data_evento+'T12:00');
+    const oFim=new Date(o.data_ret+'T12:00');
+    // Verificar sobreposição de datas
+    if(oInicio<=d2 && oFim>=d1){
+      // Há sobreposição — verificar se usa o mesmo equipamento
+      (o.itens||[]).forEach(it=>{
+        if(it.nome===nomeEq){
+          totalUsado+=parseInt(it.qtd||0);
+          conflitos.push({orc_num:o.num,cliente:o.cliente,qtd:it.qtd,
+            periodo:fmtD(o.data_evento)+' a '+fmtD(o.data_ret),status:o.status});
+        }
+      });
+    }
+  });
+  return {total:estoqueTotal, usado:totalUsado, disponivel:Math.max(0,estoqueTotal-totalUsado), conflitos};
+}
+
 function addItemOrc(){
   const eq=DB.get('equipamentos')||[];
   const sid=parseInt($('f-eq-sel')?.value);
-  // Pegar todos os equipamentos com o mesmo nome para somar estoque total
   const eqSelecionado=eq.find(x=>x.id===sid);if(!eqSelecionado)return;
-  const estoqueTotal=eq.filter(x=>x.nome===eqSelecionado.nome).reduce((s,x)=>s+parseInt(x.qtd||0),0);
   const qtd=parseInt($('f-eq-qtd')?.value)||1;
+  const d1=$('f-data')?.value;
+  const d2=$('f-ret')?.value;
+  const dispInfo=estoqueDisponivel(eqSelecionado.nome,d1,d2);
   const ex=orcItens.findIndex(i=>i.eq_id===sid);
-  const qtdAtual=ex>=0?orcItens[ex].qtd:0;
-  const qtdTotal=qtdAtual+qtd;
-  if(ex>=0) orcItens[ex].qtd=qtdTotal;
-  else orcItens.push({eq_id:sid,nome:eqSelecionado.nome,qtd,diarias:1,unitario:eqSelecionado.diaria,estoque:estoqueTotal});
-  // Atualizar estoque no item
+  if(ex>=0) orcItens[ex].qtd+=qtd;
+  else orcItens.push({eq_id:sid,nome:eqSelecionado.nome,qtd,diarias:1,unitario:eqSelecionado.diaria,
+    estoque:dispInfo.disponivel,estoqueTotal:dispInfo.total,conflitos:dispInfo.conflitos});
   const itemIdx=orcItens.findIndex(i=>i.eq_id===sid);
-  if(itemIdx>=0) orcItens[itemIdx].estoque=estoqueTotal;
+  if(itemIdx>=0){
+    orcItens[itemIdx].estoque=dispInfo.disponivel;
+    orcItens[itemIdx].estoqueTotal=dispInfo.total;
+    orcItens[itemIdx].conflitos=dispInfo.conflitos;
+  }
   renderOrcItens();
 }
 function removeItemOrc(i){orcItens.splice(i,1);renderOrcItens();}
@@ -1742,26 +1777,57 @@ function renderOrcItens(){
   const frete=parseFloat($('f-frete')?.value||0);
   const sub=orcItens.reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0);
   if(!orcItens.length){prev.innerHTML=`<div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div>`;if(totEl)totEl.style.display='none';return;}
-  // Verificar alertas de estoque
-  const eq=DB.get('equipamentos')||[];
+  // Atualizar estoque disponível considerando datas
+  const d1Atual=$('f-data')?.value;
+  const d2Atual=$('f-ret')?.value;
   const alertasEstoque=[];
   orcItens.forEach(it=>{
-    const estoqueTotal=eq.filter(x=>x.nome===it.nome).reduce((s,x)=>s+parseInt(x.qtd||0),0);
-    it.estoque=estoqueTotal;
-    if(it.qtd>estoqueTotal) alertasEstoque.push({nome:it.nome,pedido:it.qtd,disponivel:estoqueTotal,falta:it.qtd-estoqueTotal});
+    const dispInfo=estoqueDisponivel(it.nome,d1Atual,d2Atual);
+    it.estoque=dispInfo.disponivel;
+    it.estoqueTotal=dispInfo.total;
+    it.conflitos=dispInfo.conflitos;
+    if(it.qtd>dispInfo.disponivel){
+      alertasEstoque.push({
+        nome:it.nome,pedido:it.qtd,
+        disponivel:dispInfo.disponivel,
+        total:dispInfo.total,
+        falta:it.qtd-dispInfo.disponivel,
+        conflitos:dispInfo.conflitos
+      });
+    }
   });
 
-  // Mostrar alertas de estoque
+  // Mostrar alertas
   const alertaDiv=$('orc-alerta-estoque');
   if(alertaDiv){
     if(alertasEstoque.length){
       alertaDiv.style.display='block';
-      alertaDiv.innerHTML=`<div style="background:rgba(245,158,11,.12);border:1.5px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-        <div style="font-weight:700;color:var(--amber);margin-bottom:6px"><i class="ti ti-alert-triangle"></i> Atenção — Estoque insuficiente!</div>
-        ${alertasEstoque.map(a=>`<div style="font-size:13px;color:var(--txt);margin-bottom:4px">
-          • <strong>${a.nome}</strong>: pedido <strong>${a.pedido}</strong> — disponível <strong style="color:var(--red)">${a.disponivel}</strong> — faltam <strong style="color:var(--amber)">${a.falta}</strong> unidade(s)
-          <span style="font-size:11px;color:var(--txt3)"> → considere sublocar ou ajustar a quantidade</span>
-        </div>`).join('')}
+      alertaDiv.innerHTML=`<div style="background:rgba(245,158,11,.1);border:1.5px solid var(--amber);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+        <div style="font-weight:700;color:var(--amber);margin-bottom:10px;font-size:14px">
+          <i class="ti ti-alert-triangle"></i> Atenção — Conflito de estoque no período!
+        </div>
+        ${alertasEstoque.map(a=>`
+          <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(245,158,11,.2)">
+            <div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px">
+              📦 ${a.nome}
+            </div>
+            <div style="font-size:12px;color:var(--txt3);margin-bottom:6px">
+              Estoque total: <strong style="color:var(--txt)">${a.total}</strong> unid. &nbsp;|&nbsp;
+              Disponível neste período: <strong style="color:var(--red)">${a.disponivel}</strong> unid. &nbsp;|&nbsp;
+              Pedido: <strong style="color:var(--txt)">${a.pedido}</strong> unid. &nbsp;|&nbsp;
+              Faltam: <strong style="color:var(--amber)">${a.falta}</strong> unid.
+            </div>
+            ${a.conflitos.length?`<div style="font-size:11px;color:var(--txt3);margin-bottom:4px">
+              <strong>Comprometido nos eventos:</strong>
+            </div>
+            ${a.conflitos.map(cf=>`<div style="font-size:11px;background:rgba(239,68,68,.08);border-radius:6px;padding:5px 8px;margin-bottom:3px">
+              • Orç. <strong>#${cf.orc_num}</strong> — ${cf.cliente} (${cf.periodo}) — <strong>${cf.qtd}</strong> unid.
+              <span class="badge ${cf.status==='aprovado'?'badge-green':'badge-amber'}" style="margin-left:4px">${cf.status}</span>
+            </div>`).join('')}`:''}
+            <div style="font-size:11px;color:var(--txt3);margin-top:6px">
+              → Considere <strong>sublocar</strong> ${a.falta} unid. ou ajustar a quantidade
+            </div>
+          </div>`).join('')}
       </div>`;
     } else {
       alertaDiv.style.display='none';
