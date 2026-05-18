@@ -409,23 +409,30 @@ const DB={
   init(){
     // Usuários gerenciados pelo painel — localStorage é opcional
     // Os USUARIOS_FIXOS garantem acesso mesmo sem localStorage
-    // Garantir que categorias seja sempre array de strings completas
-    const catsRaw = localStorage.getItem('sc_categorias');
+    // Auto-corrigir categorias corrompidas (objetos de letras do Sheets)
     const CATS_PADRAO = ['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
+    const catsRaw = localStorage.getItem('sc_categorias');
     if(!catsRaw){
       localStorage.setItem('sc_categorias', JSON.stringify(CATS_PADRAO));
     } else {
       try {
         const parsed = JSON.parse(catsRaw);
-        // Detectar se está corrompido: itens muito curtos ou são objetos de 1 char
-        const corrompido = !Array.isArray(parsed) || 
-          (parsed.length > 0 && parsed.filter(x => {
-            const s = typeof x === 'string' ? x : (x && typeof x === 'object' ? Object.values(x).join('') : String(x));
-            return s.length <= 2;
-          }).length > parsed.length / 2);
-        if(corrompido){
-          console.warn('Categorias corrompidas detectadas, resetando...');
-          localStorage.setItem('sc_categorias', JSON.stringify(CATS_PADRAO));
+        if(Array.isArray(parsed)){
+          // Reconstruir usando getCats que já trata todos os formatos
+          const corrigidas = parsed.map(x=>{
+            if(typeof x==='string') return x.trim();
+            if(typeof x==='object'&&x!==null){
+              if(x.categoria) return String(x.categoria).trim();
+              const keys=Object.keys(x).filter(k=>!isNaN(k)).sort((a,b)=>Number(a)-Number(b));
+              if(keys.length>0) return keys.map(k=>x[k]===0?'':String(x[k]||'')).join('').trim();
+            }
+            return String(x||'').trim();
+          }).filter(x=>x.length>2);
+          if(corrigidas.length>0){
+            localStorage.setItem('sc_categorias', JSON.stringify(corrigidas));
+          } else {
+            localStorage.setItem('sc_categorias', JSON.stringify(CATS_PADRAO));
+          }
         }
       } catch(e) {
         localStorage.setItem('sc_categorias', JSON.stringify(CATS_PADRAO));
@@ -1519,29 +1526,34 @@ function salvarEq(id){
 }
 
 function getCats(){
-  // Lê direto do localStorage para evitar qualquer conversão
+  const PADRAO=['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
   try {
     const raw = localStorage.getItem('sc_categorias');
-    if(!raw) return ['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
+    if(!raw) return PADRAO;
     const parsed = JSON.parse(raw);
-    // Se for array de strings — caso normal
-    if(Array.isArray(parsed)){
-      return parsed.map(x=>{
-        if(typeof x==='string') return x.trim();
-        if(typeof x==='object'&&x!==null){
-          // vindo do Sheets como {categoria:'Caixa Ativa'}
-          return x.categoria||Object.values(x).find(v=>v&&typeof v==='string')||'';
+    if(!Array.isArray(parsed)) return PADRAO;
+    const result = parsed.map(x=>{
+      // String normal
+      if(typeof x==='string') return x.trim();
+      // Objeto com chave 'categoria' (formato correto do Sheets)
+      if(typeof x==='object'&&x!==null){
+        if(x.categoria) return String(x.categoria).trim();
+        // Objeto com chaves numéricas {0:'C',1:'a'...} — reconstituir string
+        const keys=Object.keys(x).filter(k=>!isNaN(k)).sort((a,b)=>Number(a)-Number(b));
+        if(keys.length>0){
+          return keys.map(k=>x[k]===0?'':String(x[k]||'')).join('').trim();
         }
-        return String(x).trim();
-      }).filter(x=>x.length>0);
-    }
-    // Se for string simples
-    if(typeof parsed==='string'){
-      return parsed.split(',').map(x=>x.trim()).filter(x=>x);
-    }
-    return ['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
+        // Outros objetos — pegar primeiro valor string
+        const vals=Object.values(x).filter(v=>v&&typeof v==='string');
+        return vals.join('').trim();
+      }
+      return String(x||'').trim();
+    }).filter(x=>x.length>2); // filtrar letras soltas
+    // Auto-corrigir se resultado parece corrompido
+    if(result.length===0) return PADRAO;
+    return result;
   } catch(e) {
-    return ['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
+    return PADRAO;
   }
 }
 function saveCats(arr){
