@@ -783,7 +783,7 @@ function salvarRegistro(){
       localStorage.setItem('sc_registros',JSON.stringify(regs));
       closeModal();
       toast('Enviando para o Google Drive...');
-      pages.registros();
+      registros();
       // Upload Drive automático
       try{
         const resultado=await uploadFotoDrive(foto,nomeArq,leg);
@@ -794,7 +794,7 @@ function salvarRegistro(){
           localStorage.setItem('sc_registros',JSON.stringify(regs2));
           registrarLog('Registro salvo no Drive',leg||nomeArq);
           toast('✅ Foto salva no Google Drive!');
-          pages.registros();
+          registros();
         } else { toast('Salvo localmente',true); }
       }catch(err){
         console.warn('Drive falhou:',err);
@@ -816,7 +816,7 @@ function delRegistro(id){
   const regs=JSON.parse(localStorage.getItem('sc_registros')||'[]');
   localStorage.setItem('sc_registros',JSON.stringify(regs.filter(r=>r.id!==id)));
   registrarLog('Excluir registro',id);
-  toast('Registro removido!');pages.registros();
+  toast('Registro removido!');registros();
 }
 
 function openLightbox(src,leg,dt){
