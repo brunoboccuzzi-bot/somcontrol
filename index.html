@@ -6,6 +6,7 @@
 <title>SomControl — Sistema Interno</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" onload="console.log('GSI carregado')"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -567,36 +568,29 @@ const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 let gdriveToken = null;
 let gdriveTokenExpiry = 0;
 
-let tokenClient = null;
-
-function iniciarTokenClient(){
-  if(tokenClient) return;
+function conectarDrive(){
+  if(gdriveToken && Date.now() < gdriveTokenExpiry){
+    toast('Drive já conectado!'); return;
+  }
   try{
-    tokenClient = google.accounts.oauth2.initTokenClient({
+    const client = google.accounts.oauth2.initTokenClient({
       client_id: GDRIVE_CLIENT_ID,
       scope: GDRIVE_SCOPE,
       callback:(resp)=>{
-        if(resp.error){ console.error('Drive auth error:',resp.error); toast('Erro ao conectar Drive: '+resp.error,false); return; }
+        if(resp.error){
+          toast('Erro: '+resp.error, false);
+          console.error('Drive auth:', resp); return;
+        }
         gdriveToken = resp.access_token;
         gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
         toast('✅ Google Drive conectado!');
         registros();
       }
     });
-  }catch(e){ console.warn('Google GSI não carregou ainda:',e); }
-}
-
-function conectarDrive(){
-  try{
-    iniciarTokenClient();
-    if(!tokenClient){ toast('Aguarde o Google carregar...',false); return; }
-    if(gdriveToken && Date.now() < gdriveTokenExpiry){
-      toast('Drive já está conectado!'); return;
-    }
-    tokenClient.requestAccessToken({prompt:'consent'});
+    client.requestAccessToken({prompt:'select_account'});
   }catch(e){
-    toast('Erro ao conectar Drive. Verifique o popup bloqueado.',false);
-    console.error(e);
+    console.error('Erro Drive:', e);
+    toast('Erro ao iniciar Drive: '+e.message, false);
   }
 }
 
@@ -604,18 +598,17 @@ function getGdriveToken(){
   return new Promise((resolve, reject)=>{
     if(gdriveToken && Date.now() < gdriveTokenExpiry){ resolve(gdriveToken); return; }
     try{
-      iniciarTokenClient();
-      if(!tokenClient){ reject('GSI não inicializado'); return; }
-      // Sobrescrever callback para esta promise
-      const prevCallback = tokenClient.callback;
-      tokenClient.callback = (resp)=>{
-        tokenClient.callback = prevCallback;
-        if(resp.error){ reject(resp.error); return; }
-        gdriveToken = resp.access_token;
-        gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
-        resolve(gdriveToken);
-      };
-      tokenClient.requestAccessToken({prompt:''});
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GDRIVE_CLIENT_ID,
+        scope: GDRIVE_SCOPE,
+        callback:(resp)=>{
+          if(resp.error){ reject(resp.error); return; }
+          gdriveToken = resp.access_token;
+          gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+          resolve(gdriveToken);
+        }
+      });
+      client.requestAccessToken({prompt:''});
     }catch(e){ reject(e); }
   });
 }
