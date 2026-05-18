@@ -567,19 +567,56 @@ const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 let gdriveToken = null;
 let gdriveTokenExpiry = 0;
 
-function getGdriveToken(){
-  return new Promise((resolve, reject)=>{
-    if(gdriveToken && Date.now() < gdriveTokenExpiry){ resolve(gdriveToken); return; }
-    google.accounts.oauth2.initTokenClient({
+let tokenClient = null;
+
+function iniciarTokenClient(){
+  if(tokenClient) return;
+  try{
+    tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GDRIVE_CLIENT_ID,
       scope: GDRIVE_SCOPE,
       callback:(resp)=>{
+        if(resp.error){ console.error('Drive auth error:',resp.error); toast('Erro ao conectar Drive: '+resp.error,false); return; }
+        gdriveToken = resp.access_token;
+        gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+        toast('✅ Google Drive conectado!');
+        registros();
+      }
+    });
+  }catch(e){ console.warn('Google GSI não carregou ainda:',e); }
+}
+
+function conectarDrive(){
+  try{
+    iniciarTokenClient();
+    if(!tokenClient){ toast('Aguarde o Google carregar...',false); return; }
+    if(gdriveToken && Date.now() < gdriveTokenExpiry){
+      toast('Drive já está conectado!'); return;
+    }
+    tokenClient.requestAccessToken({prompt:'consent'});
+  }catch(e){
+    toast('Erro ao conectar Drive. Verifique o popup bloqueado.',false);
+    console.error(e);
+  }
+}
+
+function getGdriveToken(){
+  return new Promise((resolve, reject)=>{
+    if(gdriveToken && Date.now() < gdriveTokenExpiry){ resolve(gdriveToken); return; }
+    try{
+      iniciarTokenClient();
+      if(!tokenClient){ reject('GSI não inicializado'); return; }
+      // Sobrescrever callback para esta promise
+      const prevCallback = tokenClient.callback;
+      tokenClient.callback = (resp)=>{
+        tokenClient.callback = prevCallback;
         if(resp.error){ reject(resp.error); return; }
         gdriveToken = resp.access_token;
         gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
         resolve(gdriveToken);
-      }
-    }).requestAccessToken({prompt:''});
+      };
+      tokenClient.requestAccessToken({prompt:''});
+    }catch(e){ reject(e); }
   });
 }
 
@@ -657,10 +694,13 @@ function registros(filtroOrc=''){
   <div class="section-header">
     <h2>${filtrados.length} registro${filtrados.length!==1?'s':''}</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <select onchange="pages.registros(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--txt)">
+      <select onchange="registros(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--txt)">
         <option value="">Todos os eventos</option>
         ${orcs.map(o=>`<option value="${o.id}" ${filtroOrc==o.id?'selected':''}>#${o.num} — ${o.cliente}</option>`).join('')}
       </select>
+      <button class="btn btn-secondary" id="btn-drive-connect" onclick="conectarDrive()" title="Conectar Google Drive">
+        <i class="ti ti-brand-google-drive"></i> ${gdriveToken?'<span style="color:var(--green)">Drive conectado</span>':'Conectar Drive'}
+      </button>
       <button class="btn btn-primary" onclick="novoRegistro()"><i class="ti ti-camera"></i>Novo registro</button>
     </div>
   </div>
