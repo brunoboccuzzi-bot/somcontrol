@@ -696,7 +696,7 @@ function registros(filtroOrc=''){
   ${filtrados.length?`<div class="fotos-grid">${filtrados.slice().reverse().map(r=>{
     const orc=orcs.find(o=>o.id===r.orc_id)||{};
     return `<div class="foto-card">
-      <img src="${r.drive_url?'https://drive.google.com/thumbnail?id='+r.drive_id+'&sz=w400':(r.foto||'')}" alt="${r.legenda||''}" onclick="openLightbox('${r.drive_url?r.drive_url:(r.foto||"")}','${(r.legenda||'').replace(/'/g,"\'")}','${r.dt||''}')">
+      <img src="${r.foto||''}" alt="${r.legenda||''}" onclick="openLightbox(r.foto||'',(r.legenda||''),(r.dt||''))">
       <div class="foto-info">
         ${orc.cliente?`<div class="foto-evento"><i class="ti ti-calendar"></i> ${orc.cliente} — ${orc.evento||''}</div>`:''}
         <div class="foto-leg">${r.legenda||'Sem legenda'}</div>
