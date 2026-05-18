@@ -568,9 +568,9 @@ const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 let gdriveToken = null;
 let gdriveTokenExpiry = 0;
 
-function conectarDrive(){
+function conectarDrive(silencioso=false){
   if(gdriveToken && Date.now() < gdriveTokenExpiry){
-    toast('Drive já conectado!'); return;
+    if(!silencioso) toast('Drive já conectado!'); return;
   }
   try{
     const client = google.accounts.oauth2.initTokenClient({
@@ -578,19 +578,35 @@ function conectarDrive(){
       scope: GDRIVE_SCOPE,
       callback:(resp)=>{
         if(resp.error){
-          toast('Erro: '+resp.error, false);
-          console.error('Drive auth:', resp); return;
+          if(!silencioso){
+            toast('Erro: '+resp.error, false);
+            console.error('Drive auth:', resp);
+          }
+          sessionStorage.removeItem('gdrive_connected');
+          return;
         }
         gdriveToken = resp.access_token;
         gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
-        toast('✅ Google Drive conectado!');
+        sessionStorage.setItem('gdrive_connected','1');
+        if(!silencioso) toast('✅ Google Drive conectado!');
         registros();
       }
     });
-    client.requestAccessToken({prompt:'select_account'});
+    // Se silencioso, usa prompt vazio (tenta sem interação)
+    client.requestAccessToken({prompt: silencioso?'':'select_account'});
   }catch(e){
-    console.error('Erro Drive:', e);
-    toast('Erro ao iniciar Drive: '+e.message, false);
+    if(!silencioso){
+      console.error('Erro Drive:', e);
+      toast('Erro ao iniciar Drive: '+e.message, false);
+    }
+  }
+}
+
+// Tentar reconexão silenciosa ao abrir Registros
+function tentarReconectarDrive(){
+  if(gdriveToken && Date.now() < gdriveTokenExpiry) return; // já conectado
+  if(sessionStorage.getItem('gdrive_connected')){
+    setTimeout(()=>conectarDrive(true), 500); // tenta silencioso
   }
 }
 
@@ -676,6 +692,7 @@ async function uploadFotoDrive(base64data, nomeArquivo, legenda){
 
 // ── REGISTROS/FOTOS ──────────────────────────────────
 function registros(filtroOrc=''){
+  tentarReconectarDrive();
   const regs=JSON.parse(localStorage.getItem('sc_registros')||'[]');
   const orcs=DB.get('orcamentos')||[];
   const filtrados=filtroOrc?regs.filter(r=>r.orc_id===filtroOrc):regs;
@@ -1254,7 +1271,7 @@ pagamentos(){
     <div class="metric-card blue"><div class="metric-label">Total faturado</div><div class="metric-val">${brl(tot)}</div></div>
   </div>
   <div class="section-header"><h2>Pagamentos</h2></div>
-  <div class="table-wrap"><table><thead><tr><th>Orç.</th><th>Cliente</th><th>Valor</th><th>Pago</th><th>Restante</th><th>Método</th><th>Status</th><th></th></tr></thead>
+  <div class="table-wrap"><table><thead><tr><th>Orç.</th><th>Cliente</th><th>Valor</th><th>Pago</th><th>Restante</th><th>Método</th><th>Status</th><th></th><th></th></tr></thead>
   <tbody>${pa.map(p=>`<tr>
     <td>#${p.orc_num}</td><td>${p.cliente}</td><td>${brl(p.valor)}</td>
     <td style="color:var(--green)">${brl(p.pago)}</td>
@@ -1262,6 +1279,7 @@ pagamentos(){
     <td>${p.metodo||'—'}</td>
     <td><span class="badge ${p.status==='pago'?'badge-green':p.status==='parcial'?'badge-amber':'badge-red'}">${p.status}</span></td>
     <td><button class="btn btn-secondary btn-sm" onclick="registrarPag(${p.id})">Registrar</button></td>
+    <td><button class="btn btn-danger btn-sm" onclick="delPagamento(${p.id})" title="Excluir pagamento"><i class="ti ti-trash"></i></button></td>
   </tr>`).join('')}</tbody></table></div>`;
 },
 relatorios(){
@@ -1647,14 +1665,20 @@ function voltarParaOrc(cliId,evento,data,ret,local,frete){
 function novoOrc(){
   orcItens=[];
   const cl=DB.get('clientes')||[],eq=DB.get('equipamentos')||[];
-  if(!cl.length){toast('Cadastre um cliente primeiro',false);return;}
+  // Clientes opcionais — orçamento genérico permitido
   openModal('Novo orçamento',`
   <div class="form-row"><div class="form-group"><label>Cliente</label>
     <div style="display:flex;gap:6px">
-      <select id="f-cli" style="flex:1">${cl.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}</select>
+      <select id="f-cli" style="flex:1" onchange="toggleAvulso(this.value)">
+        <option value="">— Orçamento avulso (sem cliente) —</option>
+        ${cl.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}
+      </select>
       <button class="btn btn-secondary btn-sm" onclick="novoClienteRapido()" title="Novo cliente" style="flex-shrink:0"><i class="ti ti-user-plus"></i></button>
     </div>
   </div><div class="form-group"><label>Tipo de evento</label><input id="f-evento" placeholder="Casamento, Formatura..."></div></div>
+  <div id="row-avulso" class="form-row single" style="display:none"><div class="form-group"><label>Nome do cliente (avulso)</label>
+    <input id="f-nome-avulso" placeholder="Nome para identificação no orçamento...">
+  </div></div>
   <div class="form-row"><div class="form-group"><label>Data do evento</label><input id="f-data" type="date" onchange="renderOrcItens()"></div>
   <div class="form-group"><label>Data devolução</label><input id="f-ret" type="date" onchange="renderOrcItens()"></div></div>
   <div class="form-row single"><div class="form-group"><label>Local</label><input id="f-local" placeholder="Cidade, bairro..."></div></div>
@@ -1675,6 +1699,10 @@ function novoOrc(){
   <div id="orc-total" style="display:none" class="total-box"><div class="tlabel">Total estimado</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarOrc()">Gerar orçamento</button>`);
+}
+function toggleAvulso(val){
+  const row=$('row-avulso');
+  if(row) row.style.display=val?'none':'grid';
 }
 function filtrarEqOrc(){
   const cat=$('f-cat-filtro')?.value;
@@ -1713,9 +1741,10 @@ function renderOrcItens(){
 }
 function salvarOrc(){
   const cl=DB.get('clientes')||[];
-  const cid=parseInt($('f-cli')?.value);const cli=cl.find(c=>c.id===cid);
+  const cid=$('f-cli')?.value?parseInt($('f-cli').value):null;
+  const cli=cl.find(c=>c.id===cid)||null;
   const ev=$('f-evento')?.value?.trim(),d1=$('f-data')?.value,d2=$('f-ret')?.value;
-  if(!cli||!ev||!d1||!d2){toast('Preencha todos os campos',false);return;}
+  if(!ev||!d1||!d2){toast('Preencha evento e datas',false);return;}
   if(!orcItens.length){toast('Adicione pelo menos um item',false);return;}
   const dias=Math.max(1,Math.round((new Date(d2)-new Date(d1))/86400000));
   orcItens.forEach(i=>i.diarias=dias);
@@ -1723,13 +1752,14 @@ function salvarOrc(){
   const total=orcItens.reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0)+frete;
   const or=DB.get('orcamentos')||[];
   const num=String(or.length+1).padStart(4,'0');
-  const novo={id:Date.now(),num,cliente_id:cid,cliente:cli.nome,evento:ev,data_evento:d1,data_ret:d2,
+  const nomeCliente=cli?cli.nome:($('f-nome-avulso')?.value?.trim()||'Avulso');
+  const novo={id:Date.now(),num,cliente_id:cid,cliente:nomeCliente,evento:ev,data_evento:d1,data_ret:d2,
     local:$('f-local')?.value||'',itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diarias:i.diarias,unitario:i.unitario})),
     frete,servico:0,desconto:0,total,status:'pendente',
     criado:new Date().toISOString().split('T')[0],criado_por:currentUser?.nome||''};
   or.push(novo);DB.set('orcamentos',or);
   const pa=DB.get('pagamentos')||[];
-  pa.push({id:Date.now(),orc_num:num,cliente:cli.nome,valor:total,pago:0,metodo:'',status:'pendente',data:novo.criado});
+  pa.push({id:Date.now(),orc_num:num,cliente:nomeCliente,valor:total,pago:0,metodo:'',status:'pendente',data:novo.criado});
   DB.set('pagamentos',pa);
   closeModal();toast('Orçamento #'+num+' criado!');registrarLog('Novo orçamento', '#'+num+' — '+cli.nome+' — '+brl(total));pages.orcamentos();
 }
@@ -1764,14 +1794,27 @@ function updateStatusOrc(id,st){
   if(i>=0){or[i].status=st;DB.set('orcamentos',or);registrarLog('Status orçamento','#'+(or[i].num||id)+' → '+st);toast('Status atualizado!');}
 }
 function delOrc(id){
-  if(!confirm('Excluir orçamento?'))return;
+  if(!confirm('Excluir orçamento e pagamento vinculado?'))return;
   const orc_del=(DB.get('orcamentos')||[]).find(x=>x.id===id);
+  // Remover orçamento
   DB.set('orcamentos',(DB.get('orcamentos')||[]).filter(x=>x.id!==id));
+  // Remover pagamento vinculado automaticamente
+  if(orc_del?.num){
+    DB.set('pagamentos',(DB.get('pagamentos')||[]).filter(x=>x.orc_num!==orc_del.num));
+  }
   registrarLog('Excluir orçamento','#'+(orc_del?.num||id)+' — '+(orc_del?.cliente||''));
-  toast('Removido!');pages.orcamentos();
+  toast('Orçamento e pagamento removidos!');pages.orcamentos();
 }
 
 // ── PAGAMENTOS ────────────────────────────────────────
+function delPagamento(id){
+  if(!confirm('Excluir este pagamento?'))return;
+  const p=(DB.get('pagamentos')||[]).find(x=>x.id===id);
+  DB.set('pagamentos',(DB.get('pagamentos')||[]).filter(x=>x.id!==id));
+  registrarLog('Excluir pagamento','Orç #'+(p?.orc_num||id)+' — '+(p?.cliente||''));
+  toast('Pagamento removido!');
+  pages.pagamentos();
+}
 function registrarPag(id){
   const p=(DB.get('pagamentos')||[]).find(x=>x.id===id);if(!p)return;
   openModal(`Pagamento — #${p.orc_num}`,`
