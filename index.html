@@ -1654,6 +1654,7 @@ function voltarParaOrc(cliId,evento,data,ret,local,frete){
     <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
     <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
   </div></div>
+  <div id="orc-alerta-estoque" style="display:none"></div>
   <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
   <div class="form-row single"><div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="${frete||0}" min="0" onchange="renderOrcItens()"></div></div>
   <div id="orc-total" style="display:none" class="total-box"><div class="tlabel">Total estimado</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>`,
@@ -1694,6 +1695,7 @@ function novoOrc(){
     <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
     <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
   </div></div>
+  <div id="orc-alerta-estoque" style="display:none"></div>
   <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
   <div class="form-row single"><div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="0" min="0" onchange="renderOrcItens()"></div></div>
   <div id="orc-total" style="display:none" class="total-box"><div class="tlabel">Total estimado</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>`,
@@ -1715,10 +1717,19 @@ function filtrarEqOrc(){
 }
 function addItemOrc(){
   const eq=DB.get('equipamentos')||[];
-  const sid=parseInt($('f-eq-sel')?.value);const e=eq.find(x=>x.id===sid);if(!e)return;
+  const sid=parseInt($('f-eq-sel')?.value);
+  // Pegar todos os equipamentos com o mesmo nome para somar estoque total
+  const eqSelecionado=eq.find(x=>x.id===sid);if(!eqSelecionado)return;
+  const estoqueTotal=eq.filter(x=>x.nome===eqSelecionado.nome).reduce((s,x)=>s+parseInt(x.qtd||0),0);
   const qtd=parseInt($('f-eq-qtd')?.value)||1;
   const ex=orcItens.findIndex(i=>i.eq_id===sid);
-  if(ex>=0) orcItens[ex].qtd+=qtd; else orcItens.push({eq_id:sid,nome:e.nome,qtd,diarias:1,unitario:e.diaria});
+  const qtdAtual=ex>=0?orcItens[ex].qtd:0;
+  const qtdTotal=qtdAtual+qtd;
+  if(ex>=0) orcItens[ex].qtd=qtdTotal;
+  else orcItens.push({eq_id:sid,nome:eqSelecionado.nome,qtd,diarias:1,unitario:eqSelecionado.diaria,estoque:estoqueTotal});
+  // Atualizar estoque no item
+  const itemIdx=orcItens.findIndex(i=>i.eq_id===sid);
+  if(itemIdx>=0) orcItens[itemIdx].estoque=estoqueTotal;
   renderOrcItens();
 }
 function removeItemOrc(i){orcItens.splice(i,1);renderOrcItens();}
@@ -1731,13 +1742,42 @@ function renderOrcItens(){
   const frete=parseFloat($('f-frete')?.value||0);
   const sub=orcItens.reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0);
   if(!orcItens.length){prev.innerHTML=`<div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div>`;if(totEl)totEl.style.display='none';return;}
-  prev.innerHTML=`<div class="orc-items-list">${orcItens.map((it,idx)=>`
-    <div class="orc-item-row">
-      <span style="flex:1;font-size:13px">${it.nome}</span>
+  // Verificar alertas de estoque
+  const eq=DB.get('equipamentos')||[];
+  const alertasEstoque=[];
+  orcItens.forEach(it=>{
+    const estoqueTotal=eq.filter(x=>x.nome===it.nome).reduce((s,x)=>s+parseInt(x.qtd||0),0);
+    it.estoque=estoqueTotal;
+    if(it.qtd>estoqueTotal) alertasEstoque.push({nome:it.nome,pedido:it.qtd,disponivel:estoqueTotal,falta:it.qtd-estoqueTotal});
+  });
+
+  // Mostrar alertas de estoque
+  const alertaDiv=$('orc-alerta-estoque');
+  if(alertaDiv){
+    if(alertasEstoque.length){
+      alertaDiv.style.display='block';
+      alertaDiv.innerHTML=`<div style="background:rgba(245,158,11,.12);border:1.5px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-weight:700;color:var(--amber);margin-bottom:6px"><i class="ti ti-alert-triangle"></i> Atenção — Estoque insuficiente!</div>
+        ${alertasEstoque.map(a=>`<div style="font-size:13px;color:var(--txt);margin-bottom:4px">
+          • <strong>${a.nome}</strong>: pedido <strong>${a.pedido}</strong> — disponível <strong style="color:var(--red)">${a.disponivel}</strong> — faltam <strong style="color:var(--amber)">${a.falta}</strong> unidade(s)
+          <span style="font-size:11px;color:var(--txt3)"> → considere sublocar ou ajustar a quantidade</span>
+        </div>`).join('')}
+      </div>`;
+    } else {
+      alertaDiv.style.display='none';
+      alertaDiv.innerHTML='';
+    }
+  }
+
+  prev.innerHTML=`<div class="orc-items-list">${orcItens.map((it,idx)=>{
+    const semEstoque=it.estoque!==undefined&&it.qtd>it.estoque;
+    return `
+    <div class="orc-item-row" style="${semEstoque?'background:rgba(239,68,68,.05);border-radius:6px;padding:4px 6px;':''}">
+      <span style="flex:1;font-size:13px">${it.nome}${semEstoque?` <span style="color:var(--red);font-size:11px">(falta ${it.qtd-it.estoque})</span>`:''}</span>
       <span style="color:var(--txt3);font-size:12px">${it.qtd}x ${dias} dia(s)</span>
       <span style="color:var(--blue);font-size:12px;min-width:70px;text-align:right">${brl(it.qtd*it.diarias*it.unitario)}</span>
       <button class="remove-item" onclick="removeItemOrc(${idx})"><i class="ti ti-x"></i></button>
-    </div>`).join('')}</div>`;
+    </div>`;}).join('')}</div>`;
   if(totEl){totEl.style.display='block';$('orc-total-val').textContent=brl(sub+frete);}
 }
 function salvarOrc(){
