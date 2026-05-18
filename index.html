@@ -120,6 +120,24 @@ input[readonly]{opacity:.6;cursor:default}
 #toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:200;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
 #toast.show{transform:translateY(0);opacity:1}
 
+/* ── GALERIA DE REGISTROS ──────────────────────────── */
+.fotos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-top:16px}
+.foto-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:transform .2s}
+.foto-card:hover{transform:translateY(-2px)}
+.foto-card img{width:100%;height:180px;object-fit:cover;display:block;cursor:pointer}
+.foto-card .foto-info{padding:10px 12px}
+.foto-card .foto-leg{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px}
+.foto-card .foto-meta{font-size:11px;color:var(--txt3)}
+.foto-card .foto-evento{font-size:11px;color:var(--blue);margin-bottom:4px}
+.foto-card .foto-acoes{display:flex;gap:6px;margin-top:8px}
+
+/* Lightbox */
+#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;align-items:center;justify-content:center;flex-direction:column}
+#lightbox.open{display:flex}
+#lightbox img{max-width:92vw;max-height:80vh;object-fit:contain;border-radius:8px}
+#lightbox .lb-info{color:#fff;margin-top:12px;text-align:center;font-size:14px}
+#lightbox .lb-close{position:absolute;top:20px;right:24px;color:#fff;font-size:28px;cursor:pointer;background:rgba(255,255,255,.1);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center}
+
 /* ── RESPONSIVO MOBILE ─────────────────────────────── */
 @media (max-width: 768px){
 
@@ -216,6 +234,7 @@ input[readonly]{opacity:.6;cursor:default}
       <div class="nav-item" id="nav-usuarios" style="display:none" onclick="go('usuarios')"><i class="ti ti-shield"></i>Usuários</div>
       <div class="nav-item" onclick="go('colaboradores')"><i class="ti ti-users-group"></i>Colaboradores</div>
       <div class="nav-item" onclick="go('escalas')"><i class="ti ti-calendar-event"></i>Escalas</div>
+      <div class="nav-item" onclick="go('registros')"><i class="ti ti-camera"></i>Registros</div>
       <div class="nav-item" id="nav-log" style="display:none" onclick="go('log')"><i class="ti ti-list-search"></i>Log</div>
     </nav>
     <div id="sidebar-bottom">
@@ -231,6 +250,13 @@ input[readonly]{opacity:.6;cursor:default}
     <div id="content"></div>
   </div>
 </div>
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()"><i class="ti ti-x"></i></button>
+  <img id="lb-img" src="" alt="">
+  <div class="lb-info" id="lb-info"></div>
+</div>
+
 <div id="modal-overlay">
   <div class="modal">
     <h3 id="modal-title"></h3>
@@ -535,6 +561,238 @@ function delEscala(id){
   toast('Removida!');pages.escalas();
 }
 
+// ── GOOGLE DRIVE INTEGRATION ─────────────────────────
+const GDRIVE_CLIENT_ID = '1090261252711-gljlartvba2ee27stnlqjgv4ufnrf7vs.apps.googleusercontent.com';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let gdriveToken = null;
+let gdriveTokenExpiry = 0;
+
+function getGdriveToken(){
+  return new Promise((resolve, reject)=>{
+    if(gdriveToken && Date.now() < gdriveTokenExpiry){ resolve(gdriveToken); return; }
+    google.accounts.oauth2.initTokenClient({
+      client_id: GDRIVE_CLIENT_ID,
+      scope: GDRIVE_SCOPE,
+      callback:(resp)=>{
+        if(resp.error){ reject(resp.error); return; }
+        gdriveToken = resp.access_token;
+        gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+        resolve(gdriveToken);
+      }
+    }).requestAccessToken({prompt:''});
+  });
+}
+
+async function garantirPastaRegistros(){
+  const token = await getGdriveToken();
+  // Pasta raiz SomControl
+  let r = await fetch(
+    "https://www.googleapis.com/drive/v3/files?q=name%3D'SomControl'+and+mimeType%3D'application%2Fvnd.google-apps.folder'+and+trashed%3Dfalse&fields=files(id)",
+    {headers:{'Authorization':'Bearer '+token}}
+  );
+  let data = await r.json();
+  let raizId;
+  if(data.files && data.files.length > 0){
+    raizId = data.files[0].id;
+  } else {
+    r = await fetch('https://www.googleapis.com/drive/v3/files',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body: JSON.stringify({name:'SomControl',mimeType:'application/vnd.google-apps.folder'})
+    });
+    data = await r.json();
+    raizId = data.id;
+  }
+  // Subpasta Registros
+  r = await fetch(
+    'https://www.googleapis.com/drive/v3/files?q=name%3D%27Registros%27+and+%27'+raizId+'%27+in+parents+and+mimeType%3D%27application%2Fvnd.google-apps.folder%27+and+trashed%3Dfalse&fields=files(id)',
+    {headers:{'Authorization':'Bearer '+token}}
+  );
+  data = await r.json();
+  if(data.files && data.files.length > 0){
+    return {token, pastaId: data.files[0].id};
+  }
+  r = await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body: JSON.stringify({name:'Registros',mimeType:'application/vnd.google-apps.folder',parents:[raizId]})
+  });
+  data = await r.json();
+  return {token, pastaId: data.id};
+}
+
+async function uploadFotoDrive(base64data, nomeArquivo, legenda){
+  try{
+    const res = await garantirPastaRegistros();
+    const token = res.token;
+    const pastaId = res.pastaId;
+    const base64 = base64data.split(',')[1];
+    const byteChars = atob(base64);
+    const byteArr = new Uint8Array(byteChars.length);
+    for(let i=0;i<byteChars.length;i++) byteArr[i] = byteChars.charCodeAt(i);
+    const blob = new Blob([byteArr], {type:'image/jpeg'});
+    const metadata = {name: nomeArquivo, parents:[pastaId], description: legenda};
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+    form.append('file', blob);
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+token},
+      body: form
+    });
+    const data = await r.json();
+    return {id: data.id, url: data.webViewLink};
+  } catch(e){
+    console.error('Erro upload Drive:', e);
+    return null;
+  }
+}
+
+// ── REGISTROS/FOTOS ──────────────────────────────────
+function registros(filtroOrc=''){
+  const regs=JSON.parse(localStorage.getItem('sc_registros')||'[]');
+  const orcs=DB.get('orcamentos')||[];
+  const filtrados=filtroOrc?regs.filter(r=>r.orc_id===filtroOrc):regs;
+  $('content').innerHTML=`
+  <div class="section-header">
+    <h2>${filtrados.length} registro${filtrados.length!==1?'s':''}</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <select onchange="pages.registros(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--txt)">
+        <option value="">Todos os eventos</option>
+        ${orcs.map(o=>`<option value="${o.id}" ${filtroOrc==o.id?'selected':''}>#${o.num} — ${o.cliente}</option>`).join('')}
+      </select>
+      <button class="btn btn-primary" onclick="novoRegistro()"><i class="ti ti-camera"></i>Novo registro</button>
+    </div>
+  </div>
+  ${filtrados.length?`<div class="fotos-grid">${filtrados.slice().reverse().map(r=>{
+    const orc=orcs.find(o=>o.id===r.orc_id)||{};
+    return `<div class="foto-card">
+      <img src="${r.drive_url?'https://drive.google.com/thumbnail?id='+r.drive_id+'&sz=w400':(r.foto||'')}" alt="${r.legenda||''}" onclick="openLightbox('${r.drive_url?r.drive_url:(r.foto||"")}','${(r.legenda||'').replace(/'/g,"\'")}','${r.dt||''}')">
+      <div class="foto-info">
+        ${orc.cliente?`<div class="foto-evento"><i class="ti ti-calendar"></i> ${orc.cliente} — ${orc.evento||''}</div>`:''}
+        <div class="foto-leg">${r.legenda||'Sem legenda'}</div>
+        <div class="foto-meta"><i class="ti ti-clock"></i> ${r.dt||''}
+        ${r.drive_url?'<span style="color:var(--green);margin-left:6px"><i class="ti ti-brand-google-drive"></i> Drive</span>':'<span style="color:var(--amber);margin-left:6px"><i class="ti ti-device-floppy"></i> Local</span>'}</div>
+        <div class="foto-acoes">
+          ${r.drive_url?`<a href="${r.drive_url}" target="_blank" class="btn btn-secondary btn-sm"><i class="ti ti-brand-google-drive"></i></a>`:''}
+          <button class="btn btn-danger btn-sm" onclick="delRegistro('${r.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')}</div>`:'<div class="empty" style="margin-top:40px"><i class="ti ti-camera" style="font-size:48px"></i><p>Nenhum registro ainda.<br>Tire uma foto para documentar o evento!</p></div>'}`;
+}
+
+function novoRegistro(){
+  const orcs=DB.get('orcamentos')||[];
+  openModal('Novo registro fotográfico',`
+  <div class="form-row single"><div class="form-group"><label>Evento vinculado (opcional)</label>
+    <select id="f-orc-reg">
+      <option value="">— Sem vínculo —</option>
+      ${orcs.map(o=>`<option value="${o.id}">#${o.num} — ${o.cliente} (${o.evento||''})</option>`).join('')}
+    </select>
+  </div></div>
+  <div class="form-row single"><div class="form-group"><label>Foto</label>
+    <input type="file" id="f-foto" accept="image/*" capture="environment"
+      style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--txt);width:100%"
+      onchange="previewFoto(this)">
+    <div id="foto-preview" style="margin-top:10px;display:none">
+      <img id="foto-prev-img" style="max-width:100%;max-height:200px;border-radius:8px;object-fit:contain">
+    </div>
+  </div></div>
+  <div class="form-row single"><div class="form-group"><label>Legenda / Descrição</label>
+    <input id="f-leg" placeholder="Ex: Equipamento danificado, Setup concluído...">
+  </div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarRegistro()"><i class="ti ti-camera"></i>Salvar</button>`);
+}
+
+function previewFoto(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    $('foto-prev-img').src=e.target.result;
+    $('foto-preview').style.display='block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function salvarRegistro(){
+  const input=$('f-foto');
+  if(!input?.files?.length){toast('Selecione uma foto',false);return;}
+  const file=input.files[0];
+  const leg=$('f-leg')?.value?.trim()||'';
+  const orc_id=$('f-orc-reg')?.value||'';
+  const now=new Date();
+  const dt=now.toLocaleDateString('pt-BR')+' '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const nomeArq='Registro_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+now.getTime()+'.jpg';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=async ()=>{
+      // Comprimir
+      const canvas=document.createElement('canvas');
+      const MAX=1200;
+      let w=img.width,h=img.height;
+      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+      if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const foto=canvas.toDataURL('image/jpeg',0.75);
+      // Thumbnail ainda menor para localStorage
+      const cThumb=document.createElement('canvas');
+      const TH=300;
+      let tw=w,th=h;
+      if(tw>TH){th=Math.round(th*TH/tw);tw=TH;}
+      cThumb.width=tw;cThumb.height=th;
+      cThumb.getContext('2d').drawImage(img,0,0,tw,th);
+      const thumb=cThumb.toDataURL('image/jpeg',0.5);
+      // Salvar localmente com thumb
+      const regs=JSON.parse(localStorage.getItem('sc_registros')||'[]');
+      const reg={id:Date.now().toString(),foto:thumb,legenda:leg,orc_id:orc_id?parseInt(orc_id):null,dt,drive_url:null,drive_id:null};
+      regs.push(reg);
+      localStorage.setItem('sc_registros',JSON.stringify(regs));
+      closeModal();
+      toast('Enviando para o Google Drive...');
+      pages.registros();
+      // Upload Drive automático
+      try{
+        const resultado=await uploadFotoDrive(foto,nomeArq,leg);
+        if(resultado){
+          const regs2=JSON.parse(localStorage.getItem('sc_registros')||'[]');
+          const i=regs2.findIndex(r=>r.id===reg.id);
+          if(i>=0){regs2[i].drive_url=resultado.url;regs2[i].drive_id=resultado.id;}
+          localStorage.setItem('sc_registros',JSON.stringify(regs2));
+          registrarLog('Registro salvo no Drive',leg||nomeArq);
+          toast('✅ Foto salva no Google Drive!');
+          pages.registros();
+        } else { toast('Salvo localmente',true); }
+      }catch(err){
+        console.warn('Drive falhou:',err);
+        registrarLog('Registro salvo localmente',leg||nomeArq);
+        toast('Salvo localmente (faça login no Drive)',true);
+      }
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function delRegistro(id){
+  if(!confirm('Excluir este registro?'))return;
+  const regs=JSON.parse(localStorage.getItem('sc_registros')||'[]');
+  localStorage.setItem('sc_registros',JSON.stringify(regs.filter(r=>r.id!==id)));
+  registrarLog('Excluir registro',id);
+  toast('Registro removido!');pages.registros();
+}
+
+function openLightbox(src,leg,dt){
+  $('lb-img').src=src;
+  $('lb-info').innerHTML=`<strong>${leg||''}</strong>${dt?'<br><span style="color:#aaa;font-size:12px">'+dt+'</span>':''}`;
+  $('lightbox').classList.add('open');
+}
+function closeLightbox(){$('lightbox').classList.remove('open');}
+
 function registrarLog(acao, detalhes=''){
   try {
     const logs = JSON.parse(localStorage.getItem('sc_logs')||'[]');
@@ -594,9 +852,9 @@ function go(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios','colaboradores','escalas','log'];
   document.querySelectorAll('.nav-item')[idx.indexOf(page)]?.classList.add('active');
-  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',usuarios:'Usuários',log:'Log de Atividades'};
+  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',registros:'Registros de Eventos',usuarios:'Usuários',log:'Log de Atividades'};
   $('page-title').textContent=titles[page]||page;
-  pages[page]?.();
+  if(page==='registros') registros(); else pages[page]?.();
 }
 function openModal(t,b,f){$('modal-title').textContent=t;$('modal-body').innerHTML=b;$('modal-footer').innerHTML=f;$('modal-overlay').classList.add('open');}
 function closeModal(){$('modal-overlay').classList.remove('open');}
