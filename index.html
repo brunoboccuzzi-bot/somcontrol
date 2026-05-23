@@ -1000,6 +1000,17 @@ function toast(msg,ok=true){
   t.style.background=ok?'var(--green)':'var(--red)';t.style.color=ok?'#0b0b0f':'#fff';
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
 }
+function calcTempo(data){
+  if(!data) return '';
+  const d=new Date(data+'T12:00');
+  const agora=new Date();
+  const meses=Math.round((agora-d)/2592000000);
+  if(meses<1) return 'Novo cliente';
+  if(meses<12) return meses+' mês'+(meses>1?'es':'');
+  const anos=Math.floor(meses/12);
+  const m=meses%12;
+  return anos+' ano'+(anos>1?'s':'')+(m>0?' e '+m+' mês'+(m>1?'es':''):'');
+}
 const brl=v=>'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
 const fmtD=s=>{try{return new Date(s+'T12:00').toLocaleDateString('pt-BR')}catch(e){return s}};
 
@@ -1241,9 +1252,10 @@ clientes(){
   $('content').innerHTML=`
   <div class="section-header"><h2>${cl.length} clientes</h2>
     <button class="btn btn-primary" onclick="novoCliente()"><i class="ti ti-plus"></i>Novo cliente</button></div>
-  <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>E-mail</th><th>Cidade</th><th>Tipo</th><th></th></tr></thead>
+  <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>E-mail</th><th>Cidade</th><th>Tipo</th><th>Cliente desde</th><th></th></tr></thead>
   <tbody>${cl.length?cl.map(c=>`<tr><td><strong>${c.nome}</strong></td><td>${c.tel}</td><td>${c.email}</td><td>${c.cidade}</td>
     <td><span class="badge badge-gray">${c.tipo}</span></td>
+    <td>${c.desde?`<span style="font-size:12px">${fmtD(c.desde)}</span><br><span style="font-size:10px;color:var(--txt3)">${calcTempo(c.desde)}</span>`:'<span style="color:var(--txt3);font-size:12px">—</span>'}</td>
     <td style="display:flex;gap:6px">
       <button class="btn btn-secondary btn-sm" onclick="editCliente(${c.id})"><i class="ti ti-edit"></i></button>
       <button class="btn btn-danger btn-sm" onclick="delCliente(${c.id})"><i class="ti ti-trash"></i></button>
@@ -1522,12 +1534,14 @@ function baixarPDF(id,interno){
 
 // ── CLIENTES CRUD ─────────────────────────────────────
 function novoCliente(){
+  const hoje=new Date().toISOString().split('T')[0];
   openModal('Novo cliente',`
   <div class="form-row"><div class="form-group"><label>Nome</label><input id="f-nome" placeholder="Nome completo"></div>
   <div class="form-group"><label>Tipo</label><select id="f-tipo"><option>PF</option><option>PJ</option></select></div></div>
   <div class="form-row"><div class="form-group"><label>Telefone</label><input id="f-tel" placeholder="(11) 99999-0000"></div>
   <div class="form-group"><label>E-mail</label><input id="f-email" type="email" placeholder="email@..."></div></div>
-  <div class="form-row single"><div class="form-group"><label>Cidade</label><input id="f-cidade" placeholder="São Paulo"></div></div>
+  <div class="form-row"><div class="form-group"><label>Cidade</label><input id="f-cidade" placeholder="São Paulo"></div>
+  <div class="form-group"><label>Cliente desde</label><input id="f-desde" type="date" value="${hoje}"></div></div>
   <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs"></textarea></div></div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarCliente(0)">Salvar</button>`);
@@ -1539,7 +1553,8 @@ function editCliente(id){
   <div class="form-group"><label>Tipo</label><select id="f-tipo"><option${c.tipo==='PF'?' selected':''}>PF</option><option${c.tipo==='PJ'?' selected':''}>PJ</option></select></div></div>
   <div class="form-row"><div class="form-group"><label>Telefone</label><input id="f-tel" value="${c.tel}"></div>
   <div class="form-group"><label>E-mail</label><input id="f-email" value="${c.email}"></div></div>
-  <div class="form-row single"><div class="form-group"><label>Cidade</label><input id="f-cidade" value="${c.cidade}"></div></div>
+  <div class="form-row"><div class="form-group"><label>Cidade</label><input id="f-cidade" value="${c.cidade}"></div>
+  <div class="form-group"><label>Cliente desde</label><input id="f-desde" type="date" value="${c.desde||''}"></div></div>
   <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs">${c.obs||''}</textarea></div></div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarCliente(${id})">Salvar</button>`);
@@ -1547,7 +1562,7 @@ function editCliente(id){
 function salvarCliente(id){
   const nome=$('f-nome')?.value?.trim();if(!nome){toast('Nome obrigatório',false);return;}
   const lista=DB.get('clientes')||[];
-  const obj={nome,tipo:$('f-tipo').value,tel:$('f-tel').value,email:$('f-email').value,cidade:$('f-cidade').value,obs:$('f-obs').value};
+  const obj={nome,tipo:$('f-tipo').value,tel:$('f-tel').value,email:$('f-email').value,cidade:$('f-cidade').value,desde:$('f-desde')?.value||'',obs:$('f-obs').value};
   if(id===0){obj.id=Date.now();lista.push(obj);}
   else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
   DB.set('clientes',lista);closeModal();toast('Cliente salvo!');registrarLog(id===0?'Novo cliente':'Editar cliente', nome);pages.clientes();
