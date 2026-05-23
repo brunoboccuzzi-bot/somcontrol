@@ -243,6 +243,17 @@ input[readonly]{opacity:.6;cursor:default}
         <div class="user-av" id="sb-av">B</div>
         <div><div class="user-name" id="sb-nome">Bruno</div><div class="user-role" id="sb-role">Admin</div></div>
       </div>
+      <div style="padding:4px 10px 8px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" style="flex:1;font-size:11px" onclick="DB.fazerBackupSheets(true)" title="Backup no Sheets">
+            <i class="ti ti-cloud-upload"></i> Backup
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;font-size:11px" onclick="DB.restaurarDoSheets()" title="Restaurar do Sheets">
+            <i class="ti ti-cloud-download"></i> Restaurar
+          </button>
+        </div>
+        <div style="font-size:10px;color:var(--txt3);text-align:center" id="ultimo-backup-txt">Sem backup salvo</div>
+      </div>
       <div class="logout-btn" onclick="doLogout()"><i class="ti ti-logout"></i>Sair</div>
     </div>
   </div>
@@ -385,6 +396,63 @@ const DB={
       if(el){el.textContent='✓ Local';el.style.color='var(--txt3)';}
     }
   },
+  async fazerBackupSheets(manual=false){
+    try{
+      const el=$('sync-status');
+      if(el){el.textContent='Fazendo backup...';el.style.color='var(--amber)';}
+      const dados={
+        versao:'1.0',
+        data:new Date().toISOString(),
+        clientes:this.get('clientes')||[],
+        equipamentos:this.get('equipamentos')||[],
+        orcamentos:this.get('orcamentos')||[],
+        pagamentos:this.get('pagamentos')||[],
+        categorias:getCats(),
+        colaboradores:this.get('colaboradores')||[],
+        escalas:this.get('escalas')||[]
+      };
+      const dt=new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      await fetch(GS_URL,{
+        method:'POST',
+        body:JSON.stringify({aba:'backup',acao:'salvar_tudo',dados:[{data:dt,dados:JSON.stringify(dados)}]})
+      });
+      localStorage.setItem('sc_ultimo_backup',new Date().toISOString());
+      if(el){el.textContent='✓ Sincronizado';el.style.color='var(--green)';}
+      const ubtxt=$('ultimo-backup-txt');
+      if(ubtxt) ubtxt.textContent='Backup: '+dt;
+      if(manual) toast('✅ Backup salvo no Google Sheets!');
+      else console.log('Backup automático no Sheets:',dt);
+    }catch(e){
+      console.warn('Backup Sheets falhou:',e);
+      if(manual) toast('Erro no backup: '+e.message,false);
+    }
+  },
+
+  async restaurarDoSheets(){
+    try{
+      toast('Buscando backup...');
+      const dados=await gsGet('backup');
+      if(!dados||!Array.isArray(dados)||dados.length===0){
+        toast('Nenhum backup encontrado no Sheets',false);return;
+      }
+      const ultimo=dados[dados.length-1];
+      if(!ultimo||!ultimo.dados){toast('Backup inválido',false);return;}
+      const backup=JSON.parse(ultimo.dados);
+      if(!confirm('Restaurar backup de '+ultimo.data+'?\nIsso substituirá todos os dados atuais.')){return;}
+      if(backup.clientes) this.set('clientes',backup.clientes);
+      if(backup.equipamentos) this.set('equipamentos',backup.equipamentos);
+      if(backup.orcamentos) this.set('orcamentos',backup.orcamentos);
+      if(backup.pagamentos) this.set('pagamentos',backup.pagamentos);
+      if(backup.categorias) localStorage.setItem('sc_categorias',JSON.stringify(backup.categorias));
+      if(backup.colaboradores) this.set('colaboradores',backup.colaboradores);
+      if(backup.escalas) this.set('escalas',backup.escalas);
+      toast('✅ Backup restaurado com sucesso!');
+      go('dashboard');
+    }catch(e){
+      toast('Erro ao restaurar: '+e.message,false);
+    }
+  },
+
   async sincronizarTudo(){
     try{
       const el=$('sync-status');
@@ -885,15 +953,26 @@ function doLogin(){
   $('sb-av').style.background=found.cor||'#4f8ef7';
   $('sb-nome').textContent=found.nome;
   $('sb-role').textContent=found.role==='admin'?'Administrador':'Funcionário';
+  const ub=localStorage.getItem('sc_ultimo_backup');
+  const ubtxt=$('ultimo-backup-txt');
+  if(ubtxt&&ub){const d=new Date(ub);ubtxt.textContent='Backup: '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
   $('nav-usuarios').style.display=found.role==='admin'?'flex':'none';
   $('nav-log').style.display=found.role==='admin'?'flex':'none';
   $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
-  registrarLog('Login', 'Usuário entrou no sistema'); DB.carregarDoSheets().then(()=>go('dashboard')); go('dashboard');
+  registrarLog('Login', 'Usuário entrou no sistema'); DB.carregarDoSheets().then(()=>go('dashboard')); go('dashboard'); setTimeout(verificarBackupDiario,3000);
 }
 function toggleMenu(){
   const sb=$('sidebar'), ov=$('overlay-mobile');
   sb?.classList.toggle('open');
   ov?.classList.toggle('open');
+}
+function verificarBackupDiario(){
+  const ultimo=localStorage.getItem('sc_ultimo_backup');
+  const diff=ultimo?Date.now()-new Date(ultimo).getTime():Infinity;
+  if(diff/3600000>=24){
+    console.log('Backup automático diário...');
+    DB.fazerBackupSheets(false);
+  }
 }
 function doLogout(){
   registrarLog('Logout', 'Usuário saiu do sistema');
