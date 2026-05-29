@@ -358,17 +358,17 @@ const DB={
   get(k){try{return JSON.parse(localStorage.getItem('sc_'+k)||'null')}catch(e){return null}},
   set(k,v){
     localStorage.setItem('sc_'+k,JSON.stringify(v));
-    // Sync com API
-    if(['clientes','equipamentos','orcamentos','pagamentos','categorias','colaboradores','escalas','logs'].includes(k)){
-      const itens=Array.isArray(v)?v:[v];
-      itens.forEach(item=>{
-        if(!item||!item.id) return;
-        fetch(API_URL+'/dados/'+k,{
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':'Bearer '+DB._tok()},
-          body:JSON.stringify({id:String(item.id),dados:item})
-        }).catch(e=>console.warn('Sync falhou:',e));
+    // Sync com Google Sheets em background
+    if(['clientes','equipamentos','orcamentos','pagamentos','colaboradores','escalas'].includes(k)){
+      const arr=Array.isArray(v)?v:[v];
+      const serial=arr.map(item=>{
+        const obj={};
+        for(const[key,val] of Object.entries(item)){
+          obj[key]=(typeof val==='object'&&val!==null)?JSON.stringify(val):val;
+        }
+        return obj;
       });
+      gsPost(k,serial).catch(e=>console.warn('Sync Sheets falhou:',e));
     }
   },
   async carregarDoSheets(){
@@ -376,11 +376,9 @@ const DB={
       const el=$('sync-status');
       if(el){el.textContent='Sincronizando...';el.style.color='var(--amber)';}
       const abas=['clientes','equipamentos','orcamentos','pagamentos','colaboradores','escalas'];
-      // Carregar todas as abas em PARALELO (muito mais rápido)
-      const resultados = await Promise.allSettled(
+      const resultados=await Promise.allSettled(
         abas.map(aba=>gsGet(aba).then(dados=>{
           if(Array.isArray(dados)&&dados.length>0){
-            // Tratar tipos
             const tratados=dados.map(item=>{
               const obj={};
               for(const[k,v] of Object.entries(item)){
@@ -396,10 +394,10 @@ const DB={
             return true;
           }
           return false;
-        }).catch(e=>{console.warn('Erro ao carregar '+aba,e);return false;})
+        }).catch(()=>false)
         )
       );
-      const carregou=resultados.some(r=>r.status==='fulfilled'&&r.value===true);
+      const carregou=resultados.some(r=>r.value===true);
       if(el){el.textContent=carregou?'✓ Sincronizado':'✓ Local';el.style.color='var(--green)';}
     }catch(e){
       const el=$('sync-status');
@@ -904,10 +902,13 @@ function entrarNoSistema(found){
   registrarLog('Login','Usuário entrou no sistema');
   go('dashboard');
   // Sincronizar Sheets em segundo plano
-  DB.carregarDoSheets().then(()=>{
-    if($('page-title')?.textContent==='Dashboard') pages.dashboard?.();
-  });
-  setTimeout(verificarBackupDiario,3000);
+  // Carregar Sheets após 1s para não travar o login
+  setTimeout(()=>{
+    DB.carregarDoSheets().then(()=>{
+      if($('page-title')?.textContent==='Dashboard') pages.dashboard?.();
+    });
+  }, 1000);
+  setTimeout(verificarBackupDiario, 5000);
 }
 function doLogout(){
   registrarLog('Logout', 'Usuário saiu do sistema');
