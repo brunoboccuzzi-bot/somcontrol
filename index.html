@@ -903,7 +903,7 @@ function go(page){
   $('sidebar')?.classList.remove('open');
   $('overlay-mobile')?.classList.remove('open');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios','colaboradores','escalas','log'];
+  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios','colaboradores','escalas','registros','log'];
   document.querySelectorAll('.nav-item')[idx.indexOf(page)]?.classList.add('active');
   const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',registros:'Registros de Eventos',usuarios:'Usuários',log:'Log de Atividades'};
   $('page-title').textContent=titles[page]||page;
