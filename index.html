@@ -232,11 +232,11 @@ input[readonly]{opacity:.6;cursor:default}
       <div class="nav-item" onclick="go('agenda')"><i class="ti ti-calendar"></i>Agenda</div>
       <div class="nav-item" onclick="go('pagamentos')"><i class="ti ti-cash"></i>Pagamentos</div>
       <div class="nav-item" onclick="go('relatorios')"><i class="ti ti-chart-bar"></i>Relatórios</div>
-      <div class="nav-item" id="nav-usuarios" style="display:none" onclick="go('usuarios')"><i class="ti ti-shield"></i>Usuários</div>
+      <div class="nav-item" id="nav-usuarios" onclick="go('usuarios')"><i class="ti ti-shield"></i>Usuários</div>
       <div class="nav-item" onclick="go('colaboradores')"><i class="ti ti-users-group"></i>Colaboradores</div>
       <div class="nav-item" onclick="go('escalas')"><i class="ti ti-calendar-event"></i>Escalas</div>
       <div class="nav-item" onclick="go('registros')"><i class="ti ti-camera"></i>Registros</div>
-      <div class="nav-item" id="nav-log" style="display:none" onclick="go('log')"><i class="ti ti-list-search"></i>Log</div>
+      <div class="nav-item" id="nav-log" onclick="go('log')"><i class="ti ti-list-search"></i>Log</div>
     </nav>
     <div id="sidebar-bottom">
       <div class="user-card">
@@ -345,6 +345,14 @@ function gsGet(aba){
   });
 }
 
+// Esconder menus restritos inicialmente
+document.addEventListener('DOMContentLoaded',()=>{
+  const nu=document.getElementById('nav-usuarios');
+  const nl=document.getElementById('nav-log');
+  if(nu) nu.style.display='none';
+  if(nl) nl.style.display='none';
+});
+
 const DB={
   _tok(){return localStorage.getItem('sc_token')||'';},
   get(k){try{return JSON.parse(localStorage.getItem('sc_'+k)||'null')}catch(e){return null}},
@@ -368,19 +376,30 @@ const DB={
       const el=$('sync-status');
       if(el){el.textContent='Sincronizando...';el.style.color='var(--amber)';}
       const abas=['clientes','equipamentos','orcamentos','pagamentos','colaboradores','escalas'];
-      let carregou=false;
-      for(const aba of abas){
-        try{
-          const r=await fetch(API_URL+'/dados/'+aba,{headers:{'Authorization':'Bearer '+DB._tok()}});
-          if(r.ok){
-            const dados=await r.json();
-            if(Array.isArray(dados)&&dados.length>0){
-              localStorage.setItem('sc_'+aba,JSON.stringify(dados));
-              carregou=true;
-            }
+      // Carregar todas as abas em PARALELO (muito mais rápido)
+      const resultados = await Promise.allSettled(
+        abas.map(aba=>gsGet(aba).then(dados=>{
+          if(Array.isArray(dados)&&dados.length>0){
+            // Tratar tipos
+            const tratados=dados.map(item=>{
+              const obj={};
+              for(const[k,v] of Object.entries(item)){
+                if(v===''||v===null||v===undefined){obj[k]=v;continue;}
+                const s=String(v).trim();
+                if(s.startsWith('[')||s.startsWith('{')){try{obj[k]=JSON.parse(s);}catch{obj[k]=v;}}
+                else if(!isNaN(s)&&s!==''){obj[k]=Number(s);}
+                else{obj[k]=v;}
+              }
+              return obj;
+            });
+            localStorage.setItem('sc_'+aba,JSON.stringify(tratados));
+            return true;
           }
-        }catch(e){console.warn('Erro ao carregar '+aba,e);}
-      }
+          return false;
+        }).catch(e=>{console.warn('Erro ao carregar '+aba,e);return false;})
+        )
+      );
+      const carregou=resultados.some(r=>r.status==='fulfilled'&&r.value===true);
       if(el){el.textContent=carregou?'✓ Sincronizado':'✓ Local';el.style.color='var(--green)';}
     }catch(e){
       const el=$('sync-status');
@@ -865,6 +884,7 @@ async function doLogin(){
     $('sb-nome').textContent=found.nome;
     $('sb-role').textContent=found.role==='admin'?'Administrador':'Funcionário';
     $('nav-usuarios').style.display=found.role==='admin'?'flex':'none';
+  $('nav-log').style.display=found.role==='admin'?'flex':'none';
     $('nav-log').style.display=found.role==='admin'?'flex':'none';
     $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
     registrarLog('Login', 'Usuário entrou no sistema');
@@ -914,8 +934,11 @@ function go(page){
   });
   const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',registros:'Registros de Eventos',usuarios:'Usuários',log:'Log de Atividades'};
   $('page-title').textContent=titles[page]||page;
-  if(page==='registros') registros();
-  else pages[page]?.();
+  // Chamar a função da página — tenta pages[page] primeiro, depois função global
+  if(typeof pages[page]==='function') pages[page]();
+  else if(page==='registros') registros();
+  else if(page==='equipamentos') equipamentos();
+  else if(typeof window[page]==='function') window[page]();
 }
 function openModal(t,b,f){$('modal-title').textContent=t;$('modal-body').innerHTML=b;$('modal-footer').innerHTML=f;$('modal-overlay').classList.add('open');}
 function closeModal(){$('modal-overlay').classList.remove('open');}
