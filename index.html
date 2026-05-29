@@ -325,12 +325,9 @@ function gsGet(aba){
     const timeout=setTimeout(()=>{
       delete window[cbName];
       script.remove();
-      // Fallback: tenta fetch normal
-      fetch(GS_URL+'?aba='+aba)
-        .then(r=>r.json())
-        .then(d=>resolve(d))
-        .catch(()=>resolve(null));
-    },8000);
+      // Timeout — resolver com null para não travar
+      resolve(null);
+    },5000);
     window[cbName]=(data)=>{
       clearTimeout(timeout);
       delete window[cbName];
@@ -871,8 +868,14 @@ async function doLogin(){
     $('nav-log').style.display=found.role==='admin'?'flex':'none';
     $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
     registrarLog('Login', 'Usuário entrou no sistema');
-    DB.carregarDoSheets().then(()=>go('dashboard'));
+    // Entrar imediatamente com dados locais
     go('dashboard');
+    // Sincronizar com Sheets em segundo plano (sem bloquear)
+    DB.carregarDoSheets().then(()=>{
+      // Recarregar página atual silenciosamente após sync
+      const paginaAtual=$('page-title')?.textContent;
+      if(paginaAtual==='Dashboard') pages.dashboard?.();
+    });
   }catch(e){
     $('login-err').style.display='block';
     $('inp-pass').value='';
@@ -902,12 +905,17 @@ function go(page){
   // Fechar menu mobile ao navegar
   $('sidebar')?.classList.remove('open');
   $('overlay-mobile')?.classList.remove('open');
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const idx=['dashboard','clientes','equipamentos','orcamentos','agenda','pagamentos','relatorios','usuarios','colaboradores','escalas','registros','log'];
-  document.querySelectorAll('.nav-item')[idx.indexOf(page)]?.classList.add('active');
+  // Ativar nav-item pelo onclick em vez de índice (evita problema com itens hidden)
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    n.classList.remove('active');
+    if(n.getAttribute('onclick')===`go('${page}')`){
+      n.classList.add('active');
+    }
+  });
   const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',registros:'Registros de Eventos',usuarios:'Usuários',log:'Log de Atividades'};
   $('page-title').textContent=titles[page]||page;
-  if(page==='registros') registros(); else pages[page]?.();
+  if(page==='registros') registros();
+  else pages[page]?.();
 }
 function openModal(t,b,f){$('modal-title').textContent=t;$('modal-body').innerHTML=b;$('modal-footer').innerHTML=f;$('modal-overlay').classList.add('open');}
 function closeModal(){$('modal-overlay').classList.remove('open');}
