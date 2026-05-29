@@ -867,52 +867,47 @@ function registrarLog(acao, detalhes=''){
 async function doLogin(){
   const u=$('inp-user').value.trim(),p=$('inp-pass').value;
   if(!u||!p){$('login-err').style.display='block';return;}
-  try{
-    const r=await fetch(API_URL+'/login',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({usuario:u,senha:p})
-    });
-    if(!r.ok){$('login-err').style.display='block';$('inp-pass').value='';return;}
-    const found=await r.json();
-    localStorage.setItem('sc_token',found.token);
-    currentUser=found;
-    $('login-screen').style.display='none';
-    $('app').classList.add('visible');
-    $('sb-av').textContent=found.nome[0].toUpperCase();
-    $('sb-av').style.background=found.cor||'#4f8ef7';
-    $('sb-nome').textContent=found.nome;
-    $('sb-role').textContent=found.role==='admin'?'Administrador':'Funcionário';
-    $('nav-usuarios').style.display=found.role==='admin'?'flex':'none';
+
+  // Verificar usuários fixos primeiro (rápido, sem API)
+  const fixo=USUARIOS_FIXOS.find(x=>x.usuario.toLowerCase()===u.toLowerCase()&&x.senha===p);
+  if(fixo){
+    entrarNoSistema(fixo);
+    return;
+  }
+
+  // Verificar usuários extras do localStorage
+  const extras=(DB.get('usuarios')||[]).find(x=>x.usuario.toLowerCase()===u.toLowerCase()&&x.senha===p);
+  if(extras){
+    entrarNoSistema(extras);
+    return;
+  }
+
+  // Credenciais inválidas
+  $('login-err').style.display='block';
+  $('inp-pass').value='';
+}
+
+function entrarNoSistema(found){
+  currentUser=found;
+  $('login-screen').style.display='none';
+  $('app').classList.add('visible');
+  $('sb-av').textContent=found.nome[0].toUpperCase();
+  $('sb-av').style.background=found.cor||'#4f8ef7';
+  $('sb-nome').textContent=found.nome;
+  $('sb-role').textContent=found.role==='admin'?'Administrador':'Funcionário';
+  $('nav-usuarios').style.display=found.role==='admin'?'flex':'none';
   $('nav-log').style.display=found.role==='admin'?'flex':'none';
-    $('nav-log').style.display=found.role==='admin'?'flex':'none';
-    $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
-    registrarLog('Login', 'Usuário entrou no sistema');
-    // Entrar imediatamente com dados locais
-    go('dashboard');
-    // Sincronizar com Sheets em segundo plano (sem bloquear)
-    DB.carregarDoSheets().then(()=>{
-      // Recarregar página atual silenciosamente após sync
-      const paginaAtual=$('page-title')?.textContent;
-      if(paginaAtual==='Dashboard') pages.dashboard?.();
-    });
-  }catch(e){
-    $('login-err').style.display='block';
-    $('inp-pass').value='';
-  }
-}
-function toggleMenu(){
-  const sb=$('sidebar'), ov=$('overlay-mobile');
-  sb?.classList.toggle('open');
-  ov?.classList.toggle('open');
-}
-function verificarBackupDiario(){
-  const ultimo=localStorage.getItem('sc_ultimo_backup');
-  const diff=ultimo?Date.now()-new Date(ultimo).getTime():Infinity;
-  if(diff/3600000>=24){
-    console.log('Backup automático diário...');
-    DB.fazerBackupSheets(false);
-  }
+  $('top-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  const ub=localStorage.getItem('sc_ultimo_backup');
+  const ubtxt=$('ultimo-backup-txt');
+  if(ubtxt&&ub){const d=new Date(ub);ubtxt.textContent='Backup: '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+  registrarLog('Login','Usuário entrou no sistema');
+  go('dashboard');
+  // Sincronizar Sheets em segundo plano
+  DB.carregarDoSheets().then(()=>{
+    if($('page-title')?.textContent==='Dashboard') pages.dashboard?.();
+  });
+  setTimeout(verificarBackupDiario,3000);
 }
 function doLogout(){
   registrarLog('Logout', 'Usuário saiu do sistema');
