@@ -397,7 +397,14 @@ const DB={
               }
               return obj;
             });
-            localStorage.setItem('sc_'+aba,JSON.stringify(tratados));
+            // Deduplicar por id antes de salvar
+            const vistos=new Set();
+            const dedup=tratados.filter(item=>{
+              if(!item.id) return true;
+              if(vistos.has(item.id)) return false;
+              vistos.add(item.id); return true;
+            });
+            localStorage.setItem('sc_'+aba,JSON.stringify(dedup));
             return true;
           }
           return false;
