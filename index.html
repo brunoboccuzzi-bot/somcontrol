@@ -1223,7 +1223,16 @@ clientes(){
 equipamentos(catFiltro=''){
   const eq=DB.get('equipamentos')||[];
   const cats=[...new Set(eq.map(e=>e.cat).filter(x=>x))].sort();
-  const filtrados=catFiltro?eq.filter(e=>e.cat===catFiltro):eq;
+  // Ordenar por categoria e depois por nome alfabético
+  const filtrados=(catFiltro?eq.filter(e=>e.cat===catFiltro):eq)
+    .slice()
+    .sort((a,b)=>{
+      const catA=(a.cat||'').toLowerCase();
+      const catB=(b.cat||'').toLowerCase();
+      if(catA<catB) return -1;
+      if(catA>catB) return 1;
+      return (a.nome||'').toLowerCase().localeCompare((b.nome||'').toLowerCase(),'pt-BR');
+    });
   $('content').innerHTML=`
   <div class="section-header"><h2>${filtrados.length} equipamento${filtrados.length!==1?'s':''}</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
