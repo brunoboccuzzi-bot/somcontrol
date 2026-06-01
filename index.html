@@ -1165,6 +1165,12 @@ function gerarPDF(orc, interno=false){
 // ══════════════════════════════════════════════════════
 // PÁGINAS
 // ══════════════════════════════════════════════════════
+// Usuários fixos do sistema — nunca se perdem mesmo limpando localStorage
+const USUARIOS_FIXOS=[
+  {id:1,usuario:'Boccuzzi',senha:'Incaaudio294700',nome:'Boccuzzi',role:'admin',cor:'#4f8ef7'},
+  {id:2,usuario:'Inca',senha:'294700',nome:'Inca',role:'admin',cor:'#22d3a5'}
+];
+
 const pages={
 dashboard(){
   const cl=DB.get('clientes')||[],or=DB.get('orcamentos')||[],pa=DB.get('pagamentos')||[],eq=DB.get('equipamentos')||[];
