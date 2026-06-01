@@ -419,9 +419,59 @@ const DB={
     }
   },
   async fazerBackupSheets(manual=false){
-    // Mantido por compatibilidade — não faz nada pois API já persiste
-    const el=$('sync-status');
-    if(el){el.textContent='✓ Sincronizado';el.style.color='var(--green)';}
+    try{
+      const el=$('sync-status');
+      if(el){el.textContent='Fazendo backup...';el.style.color='var(--amber)';}
+      const dados={
+        versao:'1.0',
+        data:new Date().toISOString(),
+        clientes:this.get('clientes')||[],
+        equipamentos:this.get('equipamentos')||[],
+        orcamentos:this.get('orcamentos')||[],
+        pagamentos:this.get('pagamentos')||[],
+        categorias:getCats(),
+        colaboradores:this.get('colaboradores')||[],
+        escalas:this.get('escalas')||[]
+      };
+      const dt=new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      await gsPost('backup',[{data:dt,dados:JSON.stringify(dados)}]);
+      localStorage.setItem('sc_ultimo_backup',new Date().toISOString());
+      if(el){el.textContent='✓ Sincronizado';el.style.color='var(--green)';}
+      const ubtxt=$('ultimo-backup-txt');
+      if(ubtxt) ubtxt.textContent='Backup: '+dt;
+      if(manual) toast('✅ Backup salvo no Google Sheets!');
+      else console.log('Backup automático:',dt);
+      return true;
+    }catch(e){
+      console.warn('Backup falhou:',e);
+      if(manual) toast('Erro no backup: '+e.message,false);
+      return false;
+    }
+  },
+
+  async restaurarDoSheets(){
+    try{
+      toast('Buscando backup...');
+      const dados=await gsGet('backup');
+      if(!dados||!Array.isArray(dados)||dados.length===0){
+        toast('Nenhum backup encontrado',false);return;
+      }
+      const ultimo=dados[dados.length-1];
+      if(!ultimo||!ultimo.dados){toast('Backup inválido',false);return;}
+      const backup=JSON.parse(ultimo.dados);
+      if(!confirm('Restaurar backup de '+ultimo.data+'?\nIsso substituirá todos os dados atuais.')){return;}
+      if(backup.clientes) this.set('clientes',backup.clientes);
+      if(backup.equipamentos) this.set('equipamentos',backup.equipamentos);
+      if(backup.orcamentos) this.set('orcamentos',backup.orcamentos);
+      if(backup.pagamentos) this.set('pagamentos',backup.pagamentos);
+      if(backup.categorias) localStorage.setItem('sc_categorias',JSON.stringify(backup.categorias));
+      if(backup.colaboradores) this.set('colaboradores',backup.colaboradores);
+      if(backup.escalas) this.set('escalas',backup.escalas);
+      toast('✅ Backup restaurado!');
+      go('dashboard');
+    }catch(e){
+      toast('Erro ao restaurar: '+e.message,false);
+    }
   },
   init(){
     const catsRaw = localStorage.getItem('sc_categorias');
