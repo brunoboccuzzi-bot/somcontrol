@@ -419,14 +419,15 @@ const DB={
         if(!Array.isArray(cats)||cats.length===0){
           localStorage.setItem('sc_categorias', JSON.stringify(CATS_PADRAO));
         } else {
-          const corrigidas = cats.map(c=>({
-            id: c.id||Date.now(),
-            nome: c.nome||c,
-            cor: c.cor||'#4f8ef7'
-          }));
-          if(JSON.stringify(corrigidas)!==JSON.stringify(cats)){
-            localStorage.setItem('sc_categorias', JSON.stringify(corrigidas));
-          }
+          // Corrigir: garantir que categorias são array de strings simples
+          const corrigidas = cats.map(x=>{
+            if(typeof x==='string') return x.trim();
+            if(typeof x==='object'&&x!==null){
+              return (x.categoria||x.nome||'').toString().trim();
+            }
+            return String(x||'').trim();
+          }).filter(x=>x.length>1);
+          localStorage.setItem('sc_categorias', JSON.stringify(corrigidas));
         }
       } catch(e) {
         localStorage.setItem('sc_categorias', JSON.stringify(CATS_PADRAO));
@@ -1587,9 +1588,11 @@ function getCats(){
         if(keys.length>0){
           return keys.map(k=>x[k]===0?'':String(x[k]||'')).join('').trim();
         }
-        // Outros objetos — pegar primeiro valor string
-        const vals=Object.values(x).filter(v=>v&&typeof v==='string');
-        return vals.join('').trim();
+        // Objeto com campo 'nome' (formato incorreto)
+        if(x.nome&&typeof x.nome==='string') return x.nome.trim();
+        // Outros objetos — pegar só o primeiro valor string curto (nome da categoria)
+        const vals=Object.values(x).filter(v=>v&&typeof v==='string'&&v.length<50&&!v.startsWith('#'));
+        return vals.length>0?vals[0].trim():'';
       }
       return String(x||'').trim();
     }).filter(x=>x.length>2); // filtrar letras soltas
