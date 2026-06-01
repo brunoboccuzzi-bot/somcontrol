@@ -975,6 +975,21 @@ function entrarNoSistema(found){
   }, 1000);
   setTimeout(verificarBackupDiario, 5000);
 }
+function toggleMenu(){
+  const sb=$('sidebar'), ov=$('overlay-mobile');
+  sb?.classList.toggle('open');
+  ov?.classList.toggle('open');
+}
+
+function verificarBackupDiario(){
+  const ultimo=localStorage.getItem('sc_ultimo_backup');
+  const diff=ultimo?Date.now()-new Date(ultimo).getTime():Infinity;
+  if(diff/3600000>=24){
+    console.log('Backup automático diário...');
+    DB.fazerBackupSheets(false);
+  }
+}
+
 function doLogout(){
   registrarLog('Logout', 'Usuário saiu do sistema');
   currentUser=null;$('app').classList.remove('visible');$('login-screen').style.display='flex';
