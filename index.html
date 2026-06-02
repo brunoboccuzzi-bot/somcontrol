@@ -281,7 +281,7 @@ const $=id=>document.getElementById(id);
 const GS_URL='https://script.google.com/macros/s/AKfycbzNcb1muCOuULAL5yiXM2OdU1JiwK-0Bj3-hS3otgeuH6QKo5SaOEHKr-EOnpC15osqpA/exec';
 const CATS_PADRAO=['Caixa Ativa','Subwoofer','Mesa de Som','Microfone','Amplificador','Cabo','Outro'];
 const USUARIOS_FIXOS=[
-  {id:1,usuario:'Boccuzzi',senha:'boca',nome:'Boccuzzi',role:'admin',cor:'#4f8ef7'},
+  {id:1,usuario:'Boccuzzi',senha:'Incaaudio294700',nome:'Boccuzzi',role:'admin',cor:'#4f8ef7'},
   {id:2,usuario:'Inca',senha:'294700',nome:'Inca',role:'admin',cor:'#22d3a5'}
 ];
 const CORES=['#4f8ef7','#22d3a5','#a78bfa','#f59e0b','#f472b6','#ef4444'];
@@ -364,8 +364,9 @@ const DB={
     localStorage.setItem('sc_'+k,JSON.stringify(v));
     // Sync com Google Sheets em background
     if(['clientes','equipamentos','orcamentos','pagamentos','colaboradores','escalas'].includes(k)){
-      const arr=Array.isArray(v)?v:[v];
-      const serial=arr.map(item=>{
+      const arr=Array.isArray(v)?v:(v?[v]:[]);
+      if(arr.length===0){gsPost(k,[]).catch(()=>{});return;}
+      const serial=arr.filter(item=>item&&typeof item==='object').map(item=>{
         const obj={};
         for(const[key,val] of Object.entries(item)){
           obj[key]=(typeof val==='object'&&val!==null)?JSON.stringify(val):val;
@@ -431,7 +432,10 @@ const DB={
         escalas:this.get('escalas')||[]
       };
       const dt=new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-      await gsPost('backup',[{data:dt,dados:JSON.stringify(dados)}]);
+      // Usar acao:'append' para ADICIONAR linha sem apagar as anteriores
+      const body=JSON.stringify({aba:'backup',acao:'append',dados:[{data:dt,dados:JSON.stringify(dados)}]});
+      await fetch(GS_URL,{method:'POST',body,headers:{'Content-Type':'text/plain'}})
+        .catch(()=>fetch(GS_URL,{method:'POST',body,mode:'no-cors'}));
       localStorage.setItem('sc_ultimo_backup',new Date().toISOString());
       if(el){el.textContent='✓ Sincronizado';el.style.color='var(--green)';}
       const ubtxt=$('ultimo-backup-txt');
