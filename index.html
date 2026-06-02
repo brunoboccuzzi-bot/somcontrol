@@ -1771,7 +1771,13 @@ function saveCats(arr){
   gsPost('categorias', comoObjetos).catch(e=>console.warn('Sync cats:',e));
 }
 function renderCatsList(){
-  const cats=getCats();
+  // Unir getCats() com categorias dos equipamentos já cadastrados
+  const catsBase=getCats();
+  const eq=DB.get('equipamentos')||[];
+  const catsEq=[...new Set(eq.map(e=>e.cat).filter(x=>x&&x.length>=1))];
+  const cats=[...new Set([...catsBase,...catsEq])].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  // Sincronizar — salvar categorias unificadas
+  if(catsEq.some(c=>!catsBase.includes(c))) saveCats(cats);
   const el=$('cats-list');
   if(!el)return;
   el.innerHTML=cats.length?cats.map((cat,i)=>`
