@@ -1775,10 +1775,46 @@ function renderCatsList(){
   const el=$('cats-list');
   if(!el)return;
   el.innerHTML=cats.length?cats.map((cat,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">
-      <span style="flex:1;font-size:13px;font-weight:600">${cat}</span>
-      <button class="btn btn-danger btn-sm" onclick="delCat(${i})"><i class="ti ti-trash"></i></button>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)" id="cat-row-${i}">
+      <span style="flex:1;font-size:13px;font-weight:600" id="cat-txt-${i}">${cat}</span>
+      <button class="btn btn-secondary btn-sm" onclick="editCat(${i})" title="Editar"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-danger btn-sm" onclick="delCat(${i})" title="Excluir"><i class="ti ti-trash"></i></button>
     </div>`).join(''):'<div style="color:var(--txt3);font-size:13px;padding:12px 0">Nenhuma categoria cadastrada.</div>';
+}
+
+function editCat(i){
+  const cats=getCats();
+  const cat=cats[i];
+  const row=$('cat-row-'+i);
+  if(!row)return;
+  // Substituir linha por input inline
+  row.innerHTML=`
+    <input id="cat-edit-${i}" value="${cat}" style="flex:1;background:var(--surface2);border:1px solid var(--blue);border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;color:var(--txt)"
+      onkeydown="if(event.key==='Enter')salvarEditCat(${i});if(event.key==='Escape')renderCatsList()">
+    <button class="btn btn-primary btn-sm" onclick="salvarEditCat(${i})"><i class="ti ti-check"></i> Salvar</button>
+    <button class="btn btn-secondary btn-sm" onclick="renderCatsList()"><i class="ti ti-x"></i></button>`;
+  row.style.gap='8px';
+  row.style.display='flex';
+  row.style.alignItems='center';
+  document.getElementById('cat-edit-'+i)?.focus();
+}
+
+function salvarEditCat(i){
+  const input=document.getElementById('cat-edit-'+i);
+  if(!input)return;
+  const novoNome=input.value.trim();
+  if(!novoNome){toast('Nome não pode ser vazio',false);return;}
+  const cats=getCats();
+  if(cats.some((c,idx)=>c===novoNome&&idx!==i)){toast('Categoria já existe',false);return;}
+  const nomeAntigo=cats[i];
+  cats[i]=novoNome;
+  saveCats(cats);
+  // Atualizar equipamentos que usavam a categoria antiga
+  const eq=DB.get('equipamentos')||[];
+  const atualizado=eq.map(e=>e.cat===nomeAntigo?{...e,cat:novoNome}:e);
+  DB.set('equipamentos',atualizado);
+  toast('Categoria atualizada!');
+  renderCatsList();
 }
 function gerenciarCategorias(){
   openModal('Categorias de equipamento',`
