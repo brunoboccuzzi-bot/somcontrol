@@ -1727,7 +1727,16 @@ function editEq(id){
 function salvarEq(id){
   const nome=$('f-nome')?.value?.trim();if(!nome){toast('Nome obrigatório',false);return;}
   const lista=DB.get('equipamentos')||[];
-  const obj={nome,cat:$('f-cat').value,qtd:parseInt($('f-qtd').value)||0,diaria:parseFloat($('f-diaria').value)||0};
+  const obj={
+    nome,
+    cat:$('f-cat').value,
+    qtd:parseInt($('f-qtd').value)||0,
+    diaria:parseFloat($('f-diaria').value)||0,
+    serie:$('f-serie')?.value?.trim()||'',
+    dt_compra:$('f-dtcompra')?.value||'',
+    vl_compra:parseFloat($('f-vlcompra')?.value)||0,
+    obs_eq:$('f-obs-eq')?.value?.trim()||''
+  };
   if(id===0){obj.id=Date.now();lista.push(obj);}
   else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
   DB.set('equipamentos',lista);closeModal();toast('Equipamento salvo!');registrarLog(id===0?'Novo equipamento':'Editar equipamento', nome);pages.equipamentos();
