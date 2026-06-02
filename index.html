@@ -1714,13 +1714,25 @@ function novoEq(){
 }
 function editEq(id){
   const e=(DB.get('equipamentos')||[]).find(x=>x.id===id);if(!e)return;
+  const temExtra=!!(e.serie||e.dt_compra||e.vl_compra||e.obs_eq);
   openModal('Editar equipamento',`
   <div class="form-row single"><div class="form-group"><label>Nome</label><input id="f-nome" value="${e.nome}"></div></div>
   <div class="form-row"><div class="form-group"><label>Categoria</label><select id="f-cat">
     ${getCats().map(cat=>`<option${e.cat===cat?' selected':''}>${cat}</option>`).join('')}
   </select></div>
   <div class="form-group"><label>Quantidade</label><input id="f-qtd" type="number" value="${e.qtd}" min="0"></div></div>
-  <div class="form-row single"><div class="form-group"><label>Diária (R$)</label><input id="f-diaria" type="number" value="${e.diaria}" min="0"></div></div>`,
+  <div class="form-row single"><div class="form-group"><label>Diária (R$)</label><input id="f-diaria" type="number" value="${e.diaria}" min="0"></div></div>
+  <div style="border-top:1px solid var(--border);margin:12px 0 8px"></div>
+  <div style="cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--txt2);font-size:13px;font-weight:700;margin-bottom:10px" onclick="toggleInfoEq()">
+    <i class="ti ti-info-circle"></i> Informações adicionais
+    <i class="ti ti-chevron-down" id="icon-info-eq" style="margin-left:auto;transition:transform .2s;${temExtra?'transform:rotate(180deg)':''}"></i>
+  </div>
+  <div id="info-eq-extra" style="${temExtra?'display:block':'display:none'}">
+    <div class="form-row"><div class="form-group"><label>Número de série</label><input id="f-serie" value="${e.serie||''}" placeholder="SN-000000"></div>
+    <div class="form-group"><label>Data de compra</label><input id="f-dtcompra" type="date" value="${e.dt_compra||''}"></div></div>
+    <div class="form-row single"><div class="form-group"><label>Valor de compra (R$)</label><input id="f-vlcompra" type="number" min="0" value="${e.vl_compra||''}" placeholder="0,00"></div></div>
+    <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs-eq">${e.obs_eq||''}</textarea></div></div>
+  </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarEq(${id})">Salvar</button>`);
 }
