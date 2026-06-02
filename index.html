@@ -1105,17 +1105,20 @@ function toast(msg,ok=true){
 }
 function calcTempo(data){
   if(!data) return '';
-  const d=new Date(data+'T12:00');
-  const agora=new Date();
-  const meses=Math.round((agora-d)/2592000000);
-  if(meses<1) return 'Novo cliente';
-  if(meses<12) return meses+' mês'+(meses>1?'es':'');
-  const anos=Math.floor(meses/12);
-  const m=meses%12;
-  return anos+' ano'+(anos>1?'s':'')+(m>0?' e '+m+' mês'+(m>1?'es':''):'');
+  try{
+    const d=new Date(data+'T12:00');
+    if(isNaN(d.getTime())) return '';
+    const agora=new Date();
+    const meses=Math.round((agora-d)/2592000000);
+    if(meses<1) return 'Novo cliente';
+    if(meses<12) return meses+' mês'+(meses>1?'es':'');
+    const anos=Math.floor(meses/12);
+    const m=meses%12;
+    return anos+' ano'+(anos>1?'s':'')+(m>0?' e '+m+' mês'+(m>1?'es':''):'');
+  }catch(e){return '';}
 }
 const brl=v=>'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
-const fmtD=s=>{try{return new Date(s+'T12:00').toLocaleDateString('pt-BR')}catch(e){return s}};
+const fmtD=s=>{if(!s)return'';try{const d=new Date(s+'T12:00');return isNaN(d.getTime())?'':d.toLocaleDateString('pt-BR')}catch(e){return''}};
 
 // ══════════════════════════════════════════════════════
 // GERADOR DE PDF (jsPDF) — layout INCA
