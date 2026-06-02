@@ -487,7 +487,7 @@ const DB={
               return (x.categoria||x.nome||'').toString().trim();
             }
             return String(x||'').trim();
-          }).filter(x=>x.length>1);
+          }).filter(x=>x.length>=1);
           localStorage.setItem('sc_categorias', JSON.stringify(corrigidas));
         }
       } catch(e) {
@@ -1754,7 +1754,7 @@ function getCats(){
         return vals.length>0?vals[0].trim():'';
       }
       return String(x||'').trim();
-    }).filter(x=>x.length>2); // filtrar letras soltas
+    }).filter(x=>x.length>=1);
     // Auto-corrigir se resultado parece corrompido
     if(result.length===0) return PADRAO;
     return result;
