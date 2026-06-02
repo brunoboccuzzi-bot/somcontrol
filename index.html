@@ -1093,7 +1093,7 @@ function go(page){
 }
 function openModal(t,b,f){$('modal-title').textContent=t;$('modal-body').innerHTML=b;$('modal-footer').innerHTML=f;$('modal-overlay').classList.add('open');}
 function closeModal(){$('modal-overlay').classList.remove('open');}
-$('modal-overlay').onclick=e=>{if(e.target===$('modal-overlay'))closeModal();};
+// Modal não fecha ao clicar fora — evitar perda de dados
 function toast(msg,ok=true){
   const t=$('toast');t.textContent=msg;
   t.style.background=ok?'var(--green)':'var(--red)';t.style.color=ok?'#0b0b0f':'#fff';
