@@ -363,7 +363,7 @@ const DB={
   set(k,v){
     localStorage.setItem('sc_'+k,JSON.stringify(v));
     // Sync com Google Sheets em background
-    if(['clientes','equipamentos','orcamentos','pagamentos','colaboradores','escalas'].includes(k)){
+    if(['clientes','equipamentos','orcamentos','pagamentos','colaboradores','escalas','usuarios'].includes(k)){
       const arr=Array.isArray(v)?v:(v?[v]:[]);
       if(arr.length===0){gsPost(k,[]).catch(()=>{});return;}
       const serial=arr.filter(item=>item&&typeof item==='object').map(item=>{
@@ -380,7 +380,7 @@ const DB={
     try{
       const el=$('sync-status');
       if(el){el.textContent='Sincronizando...';el.style.color='var(--amber)';}
-      const abas=['clientes','equipamentos','orcamentos','pagamentos','colaboradores','escalas'];
+      const abas=['clientes','equipamentos','orcamentos','pagamentos','colaboradores','escalas','usuarios'];
       const resultados=await Promise.allSettled(
         abas.map(aba=>gsGet(aba).then(dados=>{
           if(Array.isArray(dados)&&dados.length>0){
