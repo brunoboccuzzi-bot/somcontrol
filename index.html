@@ -245,11 +245,8 @@ input[readonly]{opacity:.6;cursor:default}
       </div>
       <div style="padding:4px 10px 8px;display:flex;flex-direction:column;gap:6px">
         <div style="display:flex;gap:6px">
-          <button class="btn btn-secondary btn-sm" style="flex:1;font-size:11px" onclick="DB.fazerBackupSheets(true)" title="Backup no Sheets">
-            <i class="ti ti-cloud-upload"></i> Backup
-          </button>
-          <button class="btn btn-secondary btn-sm" style="flex:1;font-size:11px" onclick="DB.restaurarDoSheets()" title="Restaurar do Sheets">
-            <i class="ti ti-cloud-download"></i> Restaurar
+          <button class="btn btn-secondary btn-sm" style="flex:1;font-size:11px" onclick="abrirGerenciadorBackup()" title="Backups">
+            <i class="ti ti-cloud"></i> Backup
           </button>
         </div>
         <div style="font-size:10px;color:var(--txt3);text-align:center" id="ultimo-backup-txt">Sem backup salvo</div>
@@ -975,6 +972,84 @@ function entrarNoSistema(found){
   }, 1000);
   setTimeout(verificarBackupDiario, 5000);
 }
+async function abrirGerenciadorBackup(){
+  openModal('☁️ Gerenciador de Backups',`
+    <div id="backup-content" style="min-height:80px;display:flex;align-items:center;justify-content:center">
+      <div style="color:var(--txt3);font-size:13px"><i class="ti ti-loader-2"></i> Buscando backups...</div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+     <button class="btn btn-primary" onclick="fazerNovoBackup()"><i class="ti ti-cloud-upload"></i> Fazer backup agora</button>`
+  );
+  // Carregar lista de backups
+  try{
+    const dados = await gsGet('backup');
+    const div = document.getElementById('backup-content');
+    if(!div) return;
+    if(!dados||!Array.isArray(dados)||dados.length===0){
+      div.innerHTML='<div class="empty"><i class="ti ti-cloud-off"></i><p>Nenhum backup encontrado.<br>Crie a aba "backup" na planilha.</p></div>';
+      return;
+    }
+    // Mostrar backups do mais recente para o mais antigo
+    const lista=[...dados].reverse();
+    div.innerHTML=`
+      <div style="margin-bottom:10px;font-size:12px;color:var(--txt3)">${lista.length} backup(s) encontrado(s)</div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto">
+        ${lista.map((b,i)=>`
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:700;color:var(--txt)"><i class="ti ti-calendar"></i> ${b.data||'Data desconhecida'}</div>
+              ${b.dados?`<div style="font-size:11px;color:var(--txt3);margin-top:3px">
+                ${(()=>{try{const d=JSON.parse(b.dados);return `${d.clientes?.length||0} clientes · ${d.equipamentos?.length||0} equip. · ${d.orcamentos?.length||0} orç.`;}catch{return 'Dados disponíveis';}})()}
+              </div>`:''}
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="restaurarBackup(${dados.length-1-i})">
+              <i class="ti ti-restore"></i> Restaurar
+            </button>
+          </div>`).join('')}
+      </div>`;
+  }catch(e){
+    const div=document.getElementById('backup-content');
+    if(div) div.innerHTML='<div class="empty"><i class="ti ti-alert-circle"></i><p>Erro ao buscar backups.<br>'+e.message+'</p></div>';
+  }
+}
+
+async function fazerNovoBackup(){
+  const btn=document.querySelector('#modal-footer .btn-primary');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Salvando...';}
+  const ok=await DB.fazerBackupSheets(false);
+  if(ok){
+    toast('✅ Backup salvo!');
+    closeModal();
+    setTimeout(abrirGerenciadorBackup, 300);
+  } else {
+    toast('Erro ao salvar backup',false);
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-cloud-upload"></i> Fazer backup agora';}
+  }
+}
+
+async function restaurarBackup(idx){
+  try{
+    const dados=await gsGet('backup');
+    if(!dados||!dados[idx]){toast('Backup não encontrado',false);return;}
+    const b=dados[idx];
+    if(!b.dados){toast('Backup inválido',false);return;}
+    const backup=JSON.parse(b.dados);
+    if(!confirm('Restaurar backup de '+b.data+'?\n\nIsso substituirá TODOS os dados atuais.\nEsta ação não pode ser desfeita.')){return;}
+    if(backup.clientes) DB.set('clientes',backup.clientes);
+    if(backup.equipamentos) DB.set('equipamentos',backup.equipamentos);
+    if(backup.orcamentos) DB.set('orcamentos',backup.orcamentos);
+    if(backup.pagamentos) DB.set('pagamentos',backup.pagamentos);
+    if(backup.categorias) localStorage.setItem('sc_categorias',JSON.stringify(backup.categorias));
+    if(backup.colaboradores) DB.set('colaboradores',backup.colaboradores);
+    if(backup.escalas) DB.set('escalas',backup.escalas);
+    closeModal();
+    toast('✅ Backup de '+b.data+' restaurado!');
+    setTimeout(()=>go('dashboard'),500);
+  }catch(e){
+    toast('Erro ao restaurar: '+e.message,false);
+  }
+}
+
 function toggleMenu(){
   const sb=$('sidebar'), ov=$('overlay-mobile');
   sb?.classList.toggle('open');
@@ -1287,7 +1362,9 @@ clientes(){
 },
 equipamentos(catFiltro=''){
   const eq=DB.get('equipamentos')||[];
-  const cats=[...new Set(eq.map(e=>e.cat).filter(x=>x))].sort();
+  // Usar getCats() para incluir todas as categorias, mesmo sem equipamentos
+  const catsEq=[...new Set(eq.map(e=>e.cat).filter(x=>x))];
+  const cats=[...new Set([...getCats(),...catsEq])].sort();
   // Ordenar por categoria e depois por nome alfabético
   const filtrados=(catFiltro?eq.filter(e=>e.cat===catFiltro):eq)
     .slice()
