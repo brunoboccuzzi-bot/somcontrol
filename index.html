@@ -1783,42 +1783,45 @@ function renderCatsList(){
   el.innerHTML=cats.length?cats.map((cat,i)=>`
     <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)" id="cat-row-${i}">
       <span style="flex:1;font-size:13px;font-weight:600" id="cat-txt-${i}">${cat}</span>
-      <button class="btn btn-secondary btn-sm" onclick="editCat(${i})" title="Editar"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-secondary btn-sm" onclick="editCat('${encodeURIComponent(cat)}')" title="Editar"><i class="ti ti-edit"></i></button>
       <button class="btn btn-danger btn-sm" onclick="delCat(${i})" title="Excluir"><i class="ti ti-trash"></i></button>
     </div>`).join(''):'<div style="color:var(--txt3);font-size:13px;padding:12px 0">Nenhuma categoria cadastrada.</div>';
 }
 
-function editCat(i){
-  const cats=getCats();
-  const cat=cats[i];
-  const row=$('cat-row-'+i);
+function editCat(catEnc){
+  const cat=decodeURIComponent(catEnc);
+  // Encontrar o row pelo texto do span
+  const spans=document.querySelectorAll('#cats-list span');
+  let row=null;
+  spans.forEach(sp=>{if(sp.textContent===cat) row=sp.closest('div[id^="cat-row-"]');});
   if(!row)return;
-  // Substituir linha por input inline
+  const rowId=row.id.replace('cat-row-','');
   row.innerHTML=`
-    <input id="cat-edit-${i}" value="${cat}" style="flex:1;background:var(--surface2);border:1px solid var(--blue);border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;color:var(--txt)"
-      onkeydown="if(event.key==='Enter')salvarEditCat(${i});if(event.key==='Escape')renderCatsList()">
-    <button class="btn btn-primary btn-sm" onclick="salvarEditCat(${i})"><i class="ti ti-check"></i> Salvar</button>
+    <input id="cat-edit-inp" value="${cat}" style="flex:1;background:var(--surface2);border:1px solid var(--blue);border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;color:var(--txt)"
+      onkeydown="if(event.key==='Enter')salvarEditCat('${catEnc}');if(event.key==='Escape')renderCatsList()">
+    <button class="btn btn-primary btn-sm" onclick="salvarEditCat('${catEnc}')"><i class="ti ti-check"></i> Salvar</button>
     <button class="btn btn-secondary btn-sm" onclick="renderCatsList()"><i class="ti ti-x"></i></button>`;
   row.style.gap='8px';
   row.style.display='flex';
   row.style.alignItems='center';
-  document.getElementById('cat-edit-'+i)?.focus();
+  document.getElementById('cat-edit-inp')?.focus();
 }
 
-function salvarEditCat(i){
-  const input=document.getElementById('cat-edit-'+i);
+function salvarEditCat(catEnc){
+  const nomeAntigo=decodeURIComponent(catEnc);
+  const input=document.getElementById('cat-edit-inp');
   if(!input)return;
   const novoNome=input.value.trim();
   if(!novoNome){toast('Nome não pode ser vazio',false);return;}
   const cats=getCats();
-  if(cats.some((c,idx)=>c===novoNome&&idx!==i)){toast('Categoria já existe',false);return;}
-  const nomeAntigo=cats[i];
-  cats[i]=novoNome;
+  if(cats.some(c=>c===novoNome&&c!==nomeAntigo)){toast('Categoria já existe',false);return;}
+  // Atualizar na lista de categorias
+  const idx=cats.indexOf(nomeAntigo);
+  if(idx>=0) cats[idx]=novoNome; else cats.push(novoNome);
   saveCats(cats);
   // Atualizar equipamentos que usavam a categoria antiga
   const eq=DB.get('equipamentos')||[];
-  const atualizado=eq.map(e=>e.cat===nomeAntigo?{...e,cat:novoNome}:e);
-  DB.set('equipamentos',atualizado);
+  DB.set('equipamentos',eq.map(e=>e.cat===nomeAntigo?{...e,cat:novoNome}:e));
   toast('Categoria atualizada!');
   renderCatsList();
 }
