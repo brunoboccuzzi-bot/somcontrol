@@ -1281,14 +1281,15 @@ function gerarPDF(orc, interno=false){
   const servico=nn(orc.servico);
   const desconto=nn(orc.desconto);
   const total=nn(orc.total)||total_parcial+frete;
-  const material=total-frete-servico+desconto;
+  // Material = total_parcial (soma dos itens com diárias cobradas)
+  const material=total_parcial;
 
   const rrows=[
-    ['MATERIAL',brl(material>0?material:total_parcial)],
-    ['FRETE TOTAL',brl(frete)],
+    ['MATERIAL',brl(material)],
+    ['FRETE TOTAL',frete?brl(frete):''],
     ['SERVIÇO',servico?brl(servico):''],
     ['DESCONTO',desconto?brl(desconto):''],
-  ];
+  ].filter(r=>r[1]);
   rrows.forEach(([l,v])=>{
     doc.setDrawColor(180);
     doc.rect(ML,y,rcol1,mh,'S');doc.rect(ML+rcol1,y,rcol2,mh,'S');
