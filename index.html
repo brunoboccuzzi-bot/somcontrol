@@ -1959,8 +1959,23 @@ function voltarParaOrc(cliId,evento,data,ret,local,frete){
   </div></div>
   <div id="orc-alerta-estoque" style="display:none"></div>
   <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
-  <div class="form-row single"><div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="${frete||0}" min="0" onchange="renderOrcItens()"></div></div>
-  <div id="orc-total" style="display:none" class="total-box"><div class="tlabel">Total estimado</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>`,
+  <div class="form-row"><div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="${frete||0}" min="0" onchange="renderOrcItens()"></div>
+  <div class="form-group"><label>Desconto</label>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="f-desconto-val" type="number" value="${desconto||0}" min="0" placeholder="0" onchange="renderOrcItens()" style="flex:1">
+      <select id="f-desconto-tipo" onchange="renderOrcItens()" style="width:60px;padding:8px 6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--txt);font-size:13px">
+        <option value="R$" ${descontoTipo==='R$'?'selected':''}>R$</option>
+        <option value="%" ${descontoTipo==='%'?'selected':''}>%</option>
+      </select>
+    </div>
+  </div></div>
+  <div id="orc-total" style="display:none" class="total-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><div class="tlabel">Subtotal</div><div id="orc-sub-val" style="font-size:13px;color:var(--txt2)">R$ 0,00</div></div>
+      <div id="orc-desconto-box" style="display:none"><div class="tlabel">Desconto</div><div id="orc-desconto-val" style="font-size:13px;color:var(--red)">- R$ 0,00</div></div>
+      <div><div class="tlabel">Total</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>
+    </div>
+  </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarOrc()">Gerar orçamento</button>`);
   setTimeout(renderOrcItens, 50);
@@ -2155,7 +2170,10 @@ function renderOrcItens(){
     i.calcInfo=calc;
   });
   const frete=parseFloat($('f-frete')?.value||0);
+  const descontoVal=parseFloat($('f-desconto-val')?.value||0);
+  const descontoTipo=$('f-desconto-tipo')?.value||'R$';
   const sub=orcItens.reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0);
+  const descontoReais=descontoTipo==='%'?Math.round(sub*descontoVal)/100:descontoVal;
   if(!orcItens.length){prev.innerHTML=`<div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div>`;if(totEl)totEl.style.display='none';return;}
   // Atualizar estoque disponível considerando datas
   const d1Atual=$('f-data')?.value;
@@ -2227,7 +2245,20 @@ function renderOrcItens(){
       <span style="color:var(--blue);font-size:12px;min-width:70px;text-align:right">${brl(it.qtd*it.diarias*it.unitario)}</span>
       <button class="remove-item" onclick="removeItemOrc(${idx})"><i class="ti ti-x"></i></button>
     </div>`;}).join('')}</div>`;
-  if(totEl){totEl.style.display='block';$('orc-total-val').textContent=brl(sub+frete);}
+  if(totEl){
+    totEl.style.display='block';
+    const subEl=$('orc-sub-val');
+    const descBox=$('orc-desconto-box');
+    const descEl=$('orc-desconto-val');
+    if(subEl) subEl.textContent=brl(sub+frete);
+    if(descontoReais>0){
+      if(descBox) descBox.style.display='block';
+      if(descEl) descEl.textContent='- '+brl(descontoReais);
+    } else {
+      if(descBox) descBox.style.display='none';
+    }
+    $('orc-total-val').textContent=brl(Math.max(0,sub+frete-descontoReais));
+  }
 }
 function salvarOrc(){
   const cl=DB.get('clientes')||[];
@@ -2245,7 +2276,7 @@ function salvarOrc(){
   const nomeCliente=cli?cli.nome:($('f-nome-avulso')?.value?.trim()||'Avulso');
   const novo={id:Date.now(),num,cliente_id:cid,cliente:nomeCliente,evento:ev,data_evento:d1,data_ret:d2,
     local:$('f-local')?.value||'',itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diarias:i.diarias,unitario:i.unitario})),
-    frete,servico:0,desconto:0,total,status:'pendente',
+    frete,desconto:descontoReais,desconto_tipo:descontoTipo,desconto_val:descontoVal,total,status:'pendente',
     criado:new Date().toISOString().split('T')[0],criado_por:currentUser?.nome||''};
   or.push(novo);DB.set('orcamentos',or);
   const pa=DB.get('pagamentos')||[];
