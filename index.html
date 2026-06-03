@@ -1984,6 +1984,7 @@ function voltarParaOrc(cliId,evento,data,ret,local,frete){
 function novoOrc(){
   orcItens=[];
   const cl=DB.get('clientes')||[],eq=DB.get('equipamentos')||[];
+  const desconto=0, descontoTipo='R$', frete=0;
   // Clientes opcionais — orçamento genérico permitido
   openModal('Novo orçamento',`
   <div class="form-row"><div class="form-group"><label>Cliente</label>
