@@ -2018,8 +2018,25 @@ function novoOrc(){
   </div></div>
   <div id="orc-alerta-estoque" style="display:none"></div>
   <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
-  <div class="form-row single"><div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="0" min="0" onchange="renderOrcItens()"></div></div>
-  <div id="orc-total" style="display:none" class="total-box"><div class="tlabel">Total estimado</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>`,
+  <div class="form-row">
+    <div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="${frete||0}" min="0" onchange="renderOrcItens()"></div>
+    <div class="form-group"><label>Desconto</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="f-desconto-val" type="number" value="${desconto||0}" min="0" placeholder="0" onchange="renderOrcItens()" style="flex:1">
+        <select id="f-desconto-tipo" onchange="renderOrcItens()" style="width:60px;padding:8px 6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--txt);font-size:13px">
+          <option value="R$">R$</option>
+          <option value="%">%</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div id="orc-total" style="display:none" class="total-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><div class="tlabel">Subtotal</div><div id="orc-sub-val" style="font-size:13px;color:var(--txt2)">R$ 0,00</div></div>
+      <div id="orc-desconto-box" style="display:none"><div class="tlabel">Desconto</div><div id="orc-desconto-val" style="font-size:13px;color:var(--red)">- R$ 0,00</div></div>
+      <div><div class="tlabel">Total</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>
+    </div>
+  </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarOrc()">Gerar orçamento</button>`);
 }
