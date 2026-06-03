@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>SomControl — Sistema Interno</title>
+<title>SomControl v18</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" onload="console.log('GSI carregado')"></script>
@@ -1748,9 +1748,20 @@ function editEq(id){
     <div class="form-group"><label>Data de compra</label><input id="f-dtcompra" type="date" value="${e.dt_compra||''}"></div></div>
     <div class="form-row single"><div class="form-group"><label>Valor de compra (R$)</label><input id="f-vlcompra" type="number" min="0" value="${e.vl_compra||''}" placeholder="0,00"></div></div>
     <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs-eq">${e.obs_eq||''}</textarea></div></div>
+    <div class="form-row single"><div class="form-group">
+      <label>Acessórios necessários</label>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:6px">Ex: 1x Cabo Powercord, 1x Cabo XLR</div>
+      <div id="acess-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px">
+        <input id="f-acess-nome" placeholder="Nome do acessório" style="flex:2" onkeydown="if(event.key==='Enter'){addAcessorio();event.preventDefault();}">
+        <input id="f-acess-qtd" type="number" value="1" min="1" style="width:60px" placeholder="Qtd">
+        <button class="btn btn-secondary btn-sm" onclick="addAcessorio()"><i class="ti ti-plus"></i></button>
+      </div>
+    </div></div>
   </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarEq(${id})">Salvar</button>`);
+  setTimeout(()=>renderAcessList(e.acessorios||[]),50);
 }
 function salvarEq(id){
   const nome=$('f-nome')?.value?.trim();if(!nome){toast('Nome obrigatório',false);return;}
