@@ -2119,12 +2119,41 @@ function addItemOrc(){
   renderOrcItens();
 }
 function removeItemOrc(i){orcItens.splice(i,1);renderOrcItens();}
+// Calcula diárias cobradas com tabela de desconto por período
+// 1-8 dias:    cobra dias reais
+// 9-30 dias:   cobra 8 diárias
+// 31-60 dias:  cobra 7 diárias
+// 61-90 dias:  cobra 6 diárias
+// 91-120 dias: cobra 5 diárias
+// 121-365 dias: cobra 4 diárias
+function calcDiariasEfetivas(dias, diaria){
+  let cobranca;
+  if(dias <= 8)        cobranca = dias;
+  else if(dias <= 30)  cobranca = 8;
+  else if(dias <= 60)  cobranca = 7;
+  else if(dias <= 90)  cobranca = 6;
+  else if(dias <= 120) cobranca = 5;
+  else                 cobranca = 4;
+  return {
+    diariasEfetivas: dias,
+    diariasCobranca: cobranca,
+    limiteAtual: cobranca,
+    desconto: dias > 8,
+    economia: Math.max(0, dias - cobranca) * diaria
+  };
+}
+
 function renderOrcItens(){
   const prev=$('orc-items-preview'),totEl=$('orc-total');if(!prev)return;
   const d1=$('f-data')?.value,d2=$('f-ret')?.value;
   const dias=(d1&&d2)?Math.max(1,Math.round((new Date(d2)-new Date(d1))/86400000)):1;
-  // atualiza diárias de todos os itens
-  orcItens.forEach(i=>i.diarias=dias);
+  // Calcular diárias com desconto progressivo para cada item
+  orcItens.forEach(i=>{
+    const calc=calcDiariasEfetivas(dias, i.unitario);
+    i.diarias=calc.diariasCobranca;
+    i.diariasReais=calc.diariasEfetivas;
+    i.calcInfo=calc;
+  });
   const frete=parseFloat($('f-frete')?.value||0);
   const sub=orcItens.reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0);
   if(!orcItens.length){prev.innerHTML=`<div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div>`;if(totEl)totEl.style.display='none';return;}
@@ -2190,7 +2219,10 @@ function renderOrcItens(){
     const semEstoque=it.estoque!==undefined&&it.qtd>it.estoque;
     return `
     <div class="orc-item-row" style="${semEstoque?'background:rgba(239,68,68,.05);border-radius:6px;padding:4px 6px;':''}">
-      <span style="flex:1;font-size:13px">${it.nome}${semEstoque?` <span style="color:var(--red);font-size:11px">(falta ${it.qtd-it.estoque})</span>`:''}</span>
+      <span style="flex:1;font-size:13px">
+        ${it.nome}${semEstoque?` <span style="color:var(--red);font-size:11px">(falta ${it.qtd-it.estoque})</span>`:''}
+        ${it.calcInfo&&it.calcInfo.desconto?`<br><span style="font-size:10px;color:var(--green)">📅 ${it.diariasReais} dias → cobrado ${it.diarias} diárias (máx ${it.calcInfo.limiteAtual}/mês) · economia ${brl(it.calcInfo.economia*it.qtd)}</span>`:''}
+      </span>
       <span style="color:var(--txt3);font-size:12px">${it.qtd}x ${dias} dia(s)</span>
       <span style="color:var(--blue);font-size:12px;min-width:70px;text-align:right">${brl(it.qtd*it.diarias*it.unitario)}</span>
       <button class="remove-item" onclick="removeItemOrc(${idx})"><i class="ti ti-x"></i></button>
