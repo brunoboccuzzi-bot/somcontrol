@@ -2268,9 +2268,13 @@ function salvarOrc(){
   if(!ev||!d1||!d2){toast('Preencha evento e datas',false);return;}
   if(!orcItens.length){toast('Adicione pelo menos um item',false);return;}
   const dias=Math.max(1,Math.round((new Date(d2)-new Date(d1))/86400000));
-  orcItens.forEach(i=>i.diarias=dias);
+  orcItens.forEach(i=>{const calc=calcDiariasEfetivas(dias,i.unitario);i.diarias=calc.diariasCobranca;});
   const frete=parseFloat($('f-frete')?.value||0);
-  const total=orcItens.reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0)+frete;
+  const descontoVal=parseFloat($('f-desconto-val')?.value||0);
+  const descontoTipo=$('f-desconto-tipo')?.value||'R$';
+  const sub=orcItens.reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0);
+  const descontoReais=descontoTipo==='%'?Math.round(sub*descontoVal*100)/10000*100:descontoVal;
+  const total=Math.max(0,sub+frete-descontoReais);
   const or=DB.get('orcamentos')||[];
   const num=String(or.length+1).padStart(4,'0');
   const nomeCliente=cli?cli.nome:($('f-nome-avulso')?.value?.trim()||'Avulso');
