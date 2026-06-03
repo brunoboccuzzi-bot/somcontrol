@@ -1423,7 +1423,7 @@ orcamentos(){
     <td><span class="badge ${o.status==='aprovado'?'badge-green':o.status==='pendente'?'badge-amber':o.status==='cancelado'?'badge-red':'badge-gray'}">${o.status}</span></td>
     <td style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn btn-secondary btn-sm" onclick="verOrc(${o.id})" title="Ver detalhes"><i class="ti ti-eye"></i></button>
-      <button class="btn btn-secondary btn-sm" onclick="gerarListaSeparacao(o)" title="Lista de separação"><i class="ti ti-list-check"></i></button>
+      <button class="btn btn-secondary btn-sm" onclick="gerarListaSeparacao(${o.id})" title="Lista de separação"><i class="ti ti-list-check"></i></button>
       <button class="btn btn-green btn-sm" onclick="baixarPDF(${o.id},false)" title="PDF cliente"><i class="ti ti-file-download"></i></button>
       <button class="btn btn-purple btn-sm" onclick="baixarPDF(${o.id},true)" title="PDF interno"><i class="ti ti-file-invoice"></i></button>
       <button class="btn btn-danger btn-sm" onclick="delOrc(${o.id})"><i class="ti ti-trash"></i></button>
@@ -2145,7 +2145,10 @@ function delAcessorio(i){
 }
 
 // ── LISTA DE SEPARAÇÃO ────────────────────────────────
-function gerarListaSeparacao(orc){
+function gerarListaSeparacao(orcOrId){
+  const orcs=DB.get('orcamentos')||[];
+  const orc=typeof orcOrId==='object'?orcOrId:orcs.find(o=>o.id===orcOrId||o.id===parseInt(orcOrId));
+  if(!orc){toast('Orçamento não encontrado',false);return;}
   const eq=DB.get('equipamentos')||[];
   const itens=orc.itens||[];
 
