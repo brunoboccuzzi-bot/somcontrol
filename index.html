@@ -1422,6 +1422,7 @@ orcamentos(){
     <td><span class="badge ${o.status==='aprovado'?'badge-green':o.status==='pendente'?'badge-amber':o.status==='cancelado'?'badge-red':'badge-gray'}">${o.status}</span></td>
     <td style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn btn-secondary btn-sm" onclick="verOrc(${o.id})" title="Ver detalhes"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-secondary btn-sm" onclick="gerarListaSeparacao(o)" title="Lista de separação"><i class="ti ti-list-check"></i></button>
       <button class="btn btn-green btn-sm" onclick="baixarPDF(${o.id},false)" title="PDF cliente"><i class="ti ti-file-download"></i></button>
       <button class="btn btn-purple btn-sm" onclick="baixarPDF(${o.id},true)" title="PDF interno"><i class="ti ti-file-invoice"></i></button>
       <button class="btn btn-danger btn-sm" onclick="delOrc(${o.id})"><i class="ti ti-trash"></i></button>
@@ -1711,9 +1712,20 @@ function novoEq(){
     <div class="form-group"><label>Data de compra</label><input id="f-dtcompra" type="date"></div></div>
     <div class="form-row single"><div class="form-group"><label>Valor de compra (R$)</label><input id="f-vlcompra" type="number" min="0" placeholder="0,00"></div></div>
     <div class="form-row single"><div class="form-group"><label>Observações</label><textarea id="f-obs-eq" placeholder="Estado de conservação, histórico..."></textarea></div></div>
+    <div class="form-row single"><div class="form-group">
+      <label>Acessórios necessários</label>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:6px">Ex: 1x Cabo Powercord, 1x Cabo XLR</div>
+      <div id="acess-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px">
+        <input id="f-acess-nome" placeholder="Nome do acessório" style="flex:2" onkeydown="if(event.key==='Enter'){addAcessorio();event.preventDefault();}">
+        <input id="f-acess-qtd" type="number" value="1" min="1" style="flex:0.5;width:60px" placeholder="Qtd">
+        <button class="btn btn-secondary btn-sm" onclick="addAcessorio()"><i class="ti ti-plus"></i></button>
+      </div>
+    </div></div>
   </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
    <button class="btn btn-primary" onclick="salvarEq(0)">Salvar</button>`);
+  setTimeout(()=>renderAcessList([]),50);
 }
 function editEq(id){
   const e=(DB.get('equipamentos')||[]).find(x=>x.id===id);if(!e)return;
@@ -1750,7 +1762,8 @@ function salvarEq(id){
     serie:$('f-serie')?.value?.trim()||'',
     dt_compra:$('f-dtcompra')?.value||'',
     vl_compra:parseFloat($('f-vlcompra')?.value)||0,
-    obs_eq:$('f-obs-eq')?.value?.trim()||''
+    obs_eq:$('f-obs-eq')?.value?.trim()||'',
+    acessorios:window._acessoriosTemp||[]
   };
   if(id===0){obj.id=Date.now();lista.push(obj);}
   else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;lista[i]=obj;}}
@@ -2092,6 +2105,139 @@ function verInfoEq(id){
   `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
    <button class="btn btn-primary" onclick="closeModal();editEq(${id})"><i class="ti ti-edit"></i>Editar</button>`);
 }
+// ── ACESSÓRIOS ───────────────────────────────────────
+let _acessoriosTemp=[];
+window._acessoriosTemp=[];
+
+function renderAcessList(lista){
+  _acessoriosTemp=[...lista];
+  window._acessoriosTemp=_acessoriosTemp;
+  const div=$('acess-list');
+  if(!div)return;
+  if(!_acessoriosTemp.length){
+    div.innerHTML='<div style="font-size:12px;color:var(--txt3);padding:6px 0">Nenhum acessório cadastrado</div>';
+    return;
+  }
+  div.innerHTML=_acessoriosTemp.map((a,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:6px;padding:6px 10px">
+      <span style="font-size:13px;flex:1"><strong>${a.qtd}x</strong> ${a.nome}</span>
+      <button class="btn btn-danger btn-sm" onclick="delAcessorio(${i})"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+}
+
+function addAcessorio(){
+  const nome=$('f-acess-nome')?.value?.trim();
+  const qtd=parseInt($('f-acess-qtd')?.value)||1;
+  if(!nome){toast('Digite o nome do acessório',false);return;}
+  _acessoriosTemp.push({nome,qtd});
+  window._acessoriosTemp=_acessoriosTemp;
+  if($('f-acess-nome')) $('f-acess-nome').value='';
+  if($('f-acess-qtd')) $('f-acess-qtd').value='1';
+  renderAcessList(_acessoriosTemp);
+  $('f-acess-nome')?.focus();
+}
+
+function delAcessorio(i){
+  _acessoriosTemp.splice(i,1);
+  window._acessoriosTemp=_acessoriosTemp;
+  renderAcessList(_acessoriosTemp);
+}
+
+// ── LISTA DE SEPARAÇÃO ────────────────────────────────
+function gerarListaSeparacao(orc){
+  const eq=DB.get('equipamentos')||[];
+  const itens=orc.itens||[];
+
+  // Montar lista completa: equipamentos + acessórios
+  const lista=[];
+  itens.forEach(it=>{
+    // Adicionar o equipamento principal
+    lista.push({nome:it.nome, qtd:it.qtd, tipo:'equipamento'});
+    // Buscar acessórios do equipamento
+    const eqRef=eq.find(e=>e.nome===it.nome);
+    if(eqRef&&eqRef.acessorios&&eqRef.acessorios.length){
+      eqRef.acessorios.forEach(a=>{
+        // Verificar se já está na lista
+        const existing=lista.find(l=>l.nome===a.nome&&l.tipo==='acessorio');
+        if(existing){
+          existing.qtd+=a.qtd*it.qtd;
+        } else {
+          lista.push({nome:a.nome, qtd:a.qtd*it.qtd, tipo:'acessorio'});
+        }
+      });
+    }
+  });
+
+  openModal('📋 Lista de Separação — #'+orc.num,`
+  <div style="margin-bottom:12px">
+    <div style="font-size:13px;color:var(--txt3)"><strong>${orc.cliente}</strong> · ${orc.evento}</div>
+    <div style="font-size:12px;color:var(--txt3)">${orc.data_evento?fmtD(orc.data_evento):''} ${orc.data_ret?'→ '+fmtD(orc.data_ret):''}</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto">
+    ${lista.map(item=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border-left:3px solid ${item.tipo==='equipamento'?'var(--blue)':'var(--green)'}">
+        <div style="width:32px;height:32px;background:${item.tipo==='equipamento'?'var(--blue)':'var(--green)'};border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">${item.qtd}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700">${item.nome}</div>
+          <div style="font-size:11px;color:var(--txt3)">${item.tipo==='equipamento'?'Equipamento':'Acessório'}</div>
+        </div>
+        <div style="margin-left:auto">
+          <input type="checkbox" style="width:20px;height:20px;cursor:pointer" title="Marcar como separado">
+        </div>
+      </div>`).join('')}
+  </div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+   <button class="btn btn-primary" onclick="imprimirListaSeparacao('${orc.id}')"><i class="ti ti-printer"></i> Imprimir</button>`);
+}
+
+function imprimirListaSeparacao(orcId){
+  const orcs=DB.get('orcamentos')||[];
+  const orc=orcs.find(o=>o.id===parseInt(orcId)||o.id===orcId);
+  if(!orc)return;
+  const eq=DB.get('equipamentos')||[];
+  const itens=orc.itens||[];
+  const lista=[];
+  itens.forEach(it=>{
+    lista.push({nome:it.nome,qtd:it.qtd,tipo:'equipamento'});
+    const eqRef=eq.find(e=>e.nome===it.nome);
+    if(eqRef&&eqRef.acessorios){
+      eqRef.acessorios.forEach(a=>{
+        const ex=lista.find(l=>l.nome===a.nome&&l.tipo==='acessorio');
+        if(ex) ex.qtd+=a.qtd*it.qtd;
+        else lista.push({nome:a.nome,qtd:a.qtd*it.qtd,tipo:'acessorio'});
+      });
+    }
+  });
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Lista de Separação #${orc.num}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;max-width:600px;margin:0 auto;color:#111}
+    h2{font-size:18px;margin-bottom:4px}
+    .sub{font-size:13px;color:#666;margin-bottom:20px}
+    .item{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px}
+    .qtd{width:36px;height:36px;background:${'{'}item.tipo==='equipamento'?'#4f8ef7':'#22d3a5'{'}'};border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;flex-shrink:0}
+    .check{width:22px;height:22px;border:2px solid #ddd;border-radius:4px;margin-left:auto;flex-shrink:0}
+    .tipo{font-size:10px;color:#888}
+    @media print{body{padding:10px}}
+  </style></head><body>
+  <h2>📋 Lista de Separação — Orç. #${orc.num}</h2>
+  <div class="sub">${orc.cliente} · ${orc.evento}<br>
+  ${orc.data_evento?fmtD(orc.data_evento):''} ${orc.data_ret?'→ '+fmtD(orc.data_ret):''}</div>
+  ${lista.map(item=>`
+    <div class="item">
+      <div class="qtd" style="background:${item.tipo==='equipamento'?'#4f8ef7':'#22d3a5'}">${item.qtd}</div>
+      <div><div style="font-weight:700">${item.nome}</div><div class="tipo">${item.tipo==='equipamento'?'Equipamento':'Acessório'}</div></div>
+      <div class="check"></div>
+    </div>`).join('')}
+  </body></html>`;
+
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),500);
+}
+
 function filtrarEqOrc(){
   const cat=$('f-cat-filtro')?.value;
   const sel=$('f-eq-sel');
