@@ -2487,13 +2487,75 @@ function verOrc(id){
       <span style="color:var(--txt3)">${i.qtd}x ${i.diarias} dia(s)</span>
       <span style="color:var(--blue);min-width:80px;text-align:right">${brl(i.qtd*i.diarias*i.unitario)}</span>
     </div>`).join('')}</div>
-  <div class="total-box"><div class="tlabel">Total</div><div class="tval">${brl(o.total)}</div></div>
+  <div style="border-top:1px solid var(--border);margin:14px 0 10px"></div>
+  <div class="form-row">
+    <div class="form-group"><label>Frete (R$)</label>
+      <input id="v-frete" type="number" value="${o.frete||0}" min="0" onchange="recalcVerOrc(${o.id})" style="text-align:right">
+    </div>
+    <div class="form-group"><label>Desconto</label>
+      <div style="display:flex;gap:6px">
+        <input id="v-desconto-val" type="number" value="${o.desconto_val||0}" min="0" placeholder="0" onchange="recalcVerOrc(${o.id})" style="flex:1;text-align:right">
+        <select id="v-desconto-tipo" onchange="recalcVerOrc(${o.id})" style="width:60px;padding:8px 6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--txt);font-size:13px">
+          <option value="R$" ${(o.desconto_tipo||'R$')==='R$'?'selected':''}>R$</option>
+          <option value="%" ${o.desconto_tipo==='%'?'selected':''}>%</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="total-box" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div><div class="tlabel">Subtotal</div><div style="font-size:13px;color:var(--txt2)">${brl((o.itens||[]).reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0))}</div></div>
+    <div id="v-desc-box" style="${o.desconto>0?'':'display:none'}"><div class="tlabel">Desconto</div><div style="font-size:13px;color:var(--red)" id="v-desc-val">- ${brl(o.desconto||0)}</div></div>
+    <div><div class="tlabel">Total</div><div class="tval" id="v-total-val">${brl(o.total)}</div></div>
+  </div>
   ${o.criado_por?`<div style="font-size:11px;color:var(--txt3);margin-top:10px">Criado por: ${o.criado_por}</div>`:''}
   <div style="display:flex;gap:10px;margin-top:16px">
     <button class="btn btn-green" style="flex:1" onclick="closeModal();baixarPDF(${o.id},false)"><i class="ti ti-file-download"></i>PDF Cliente</button>
     <button class="btn btn-purple" style="flex:1" onclick="closeModal();baixarPDF(${o.id},true)"><i class="ti ti-file-invoice"></i>PDF Interno</button>
   </div>`,
-  `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>`);
+  `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+   <button class="btn btn-primary" onclick="salvarDescontoOrc(${o.id})"><i class="ti ti-check"></i> Salvar desconto</button>`);
+}
+
+function recalcVerOrc(id){
+  const orcs=DB.get('orcamentos')||[];
+  const o=orcs.find(x=>x.id===id);if(!o)return;
+  const sub=(o.itens||[]).reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0);
+  const frete=parseFloat($('v-frete')?.value||0);
+  const dVal=parseFloat($('v-desconto-val')?.value||0);
+  const dTipo=$('v-desconto-tipo')?.value||'R$';
+  const desconto=dTipo==='%'?(sub*dVal/100):dVal;
+  const total=Math.max(0,sub+frete-desconto);
+  const vt=$('v-total-val');
+  const vd=$('v-desc-val');
+  const db=$('v-desc-box');
+  if(vt) vt.textContent=brl(total);
+  if(desconto>0){
+    if(db) db.style.display='block';
+    if(vd) vd.textContent='- '+brl(desconto);
+  } else {
+    if(db) db.style.display='none';
+  }
+}
+
+function salvarDescontoOrc(id){
+  const orcs=DB.get('orcamentos')||[];
+  const idx=orcs.findIndex(x=>x.id===id);if(idx<0)return;
+  const o=orcs[idx];
+  const sub=(o.itens||[]).reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0);
+  const frete=parseFloat($('v-frete')?.value||0);
+  const dVal=parseFloat($('v-desconto-val')?.value||0);
+  const dTipo=$('v-desconto-tipo')?.value||'R$';
+  const desconto=dTipo==='%'?(sub*dVal/100):dVal;
+  const total=Math.max(0,sub+frete-desconto);
+  orcs[idx]={...o,frete,desconto,desconto_val:dVal,desconto_tipo:dTipo,total};
+  DB.set('orcamentos',orcs);
+  // Atualizar pagamento vinculado
+  const pags=DB.get('pagamentos')||[];
+  const pi=pags.findIndex(p=>p.orc_num===o.num);
+  if(pi>=0){pags[pi].valor=total;DB.set('pagamentos',pags);}
+  toast('Desconto salvo!');
+  closeModal();
+  pages.orcamentos();
 }
 function updateStatusOrc(id,st){
   const or=DB.get('orcamentos')||[];const i=or.findIndex(x=>x.id===id);
