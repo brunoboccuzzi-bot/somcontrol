@@ -1165,7 +1165,7 @@ function gerarPDF(orc, interno=false){
   // TÍTULO + VALIDADE
   txt('PROPOSTA DE ORÇAMENTO',ML,y,{bold:true,size:15});
   const dataRet=orc.data_ret||orc.data_retorno||'';
-  const valDate=dataRet?new Date(dataRet+'T12:00'):new Date(Date.now()+7*86400000);
+  const valDate=orc.validade?new Date(orc.validade+'T12:00'):new Date(Date.now()+10*86400000);
   const val=valDate.toLocaleDateString('pt-BR');
   txt('Validade: '+val,rx,y,{bold:true,size:10,align:'right'});
   y+=8;
@@ -2462,7 +2462,9 @@ function salvarOrc(){
   const novo={id:Date.now(),num,cliente_id:cid,cliente:nomeCliente,evento:ev,data_evento:d1,data_ret:d2,
     local:$('f-local')?.value||'',itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diarias:i.diarias,unitario:i.unitario})),
     frete,desconto:descontoReais,desconto_tipo:descontoTipo,desconto_val:descontoVal,total,status:'pendente',
-    criado:new Date().toISOString().split('T')[0],criado_por:currentUser?.nome||''};
+    criado:new Date().toISOString().split('T')[0],
+    criado_por:currentUser?.nome||'',
+    validade:(()=>{const v=new Date();v.setDate(v.getDate()+10);return v.toISOString().split('T')[0];})()};
   or.push(novo);DB.set('orcamentos',or);
   const pa=DB.get('pagamentos')||[];
   pa.push({id:Date.now(),orc_num:num,cliente:nomeCliente,valor:total,pago:0,metodo:'',status:'pendente',data:novo.criado});
@@ -2478,8 +2480,12 @@ function verOrc(id){
     ${['pendente','aprovado','cancelado'].map(s=>`<option${o.status===s?' selected':''}>${s}</option>`).join('')}
   </select></div></div>
   <div class="form-row"><div class="form-group"><label>Evento</label><input value="${o.evento}" readonly></div>
-  <div class="form-group"><label>Data</label><input value="${o.data_evento?fmtD(o.data_evento):''}" readonly></div></div>
-  <div class="form-row single"><div class="form-group"><label>Local</label><input value="${o.local}" readonly></div></div>
+  <div class="form-group"><label>Local</label><input value="${o.local}" readonly></div></div>
+  <div class="form-row">
+    <div class="form-group"><label>Data do evento</label><input value="${o.data_evento?fmtD(o.data_evento):''}" readonly></div>
+    <div class="form-group"><label>Devolução</label><input value="${o.data_ret?fmtD(o.data_ret):''}" readonly></div>
+    <div class="form-group"><label>Validade</label><input value="${o.validade?fmtD(o.validade):''}" readonly></div>
+  </div>
   <label style="font-size:12px;color:var(--txt3);font-weight:700;display:block;margin-top:12px;margin-bottom:6px">Itens</label>
   <div class="orc-items-list">${(o.itens||[]).map(i=>`
     <div class="orc-item-row">
