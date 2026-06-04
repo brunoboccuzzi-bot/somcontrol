@@ -1479,7 +1479,13 @@ agenda(){
   </div>`;
 },
 pagamentos(){
-  const pa=DB.get('pagamentos')||[];
+  const todos=DB.get('pagamentos')||[];
+  const orcs=DB.get('orcamentos')||[];
+  // Mostrar apenas pagamentos de orçamentos aprovados
+  const pa=todos.filter(p=>{
+    const orc=orcs.find(o=>o.num===p.orc_num);
+    return orc&&orc.status==='aprovado';
+  });
   const tot=pa.reduce((s,p)=>s+parseFloat(p.valor||0),0);
   const rec=pa.reduce((s,p)=>s+parseFloat(p.pago||0),0);
   $('content').innerHTML=`
