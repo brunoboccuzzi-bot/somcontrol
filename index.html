@@ -2344,7 +2344,12 @@ function estoqueDisponivel(nomeEq, dataInicio, dataFim, orcIdIgnorar=null){
 
 function addItemOrc(){
   const eq=DB.get('equipamentos')||[];
-  const sid=parseInt($('f-eq-sel')?.value);
+  const sel=$('f-eq-sel');
+  if(!sel)return;
+  // Ler pelo selectedIndex para garantir valor correto
+  const selectedOpt=sel.options[sel.selectedIndex];
+  if(!selectedOpt)return;
+  const sid=parseInt(selectedOpt.value);
   const eqSelecionado=eq.find(x=>x.id===sid);if(!eqSelecionado)return;
   const qtd=parseInt($('f-eq-qtd')?.value)||1;
   const d1=$('f-data')?.value;
