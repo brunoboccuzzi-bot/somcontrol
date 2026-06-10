@@ -1464,6 +1464,7 @@ orcamentos(){
     <td><span class="badge ${o.status==='aprovado'?'badge-green':o.status==='pendente'?'badge-amber':o.status==='cancelado'?'badge-red':'badge-gray'}">${o.status}</span></td>
     <td style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn btn-secondary btn-sm" onclick="verOrc(${o.id})" title="Ver detalhes"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-secondary btn-sm" onclick="editarOrc(${o.id})" title="Editar orçamento"><i class="ti ti-edit"></i></button>
       <button class="btn btn-secondary btn-sm" onclick="gerarListaSeparacao(${o.id})" title="Lista de separação"><i class="ti ti-list-check"></i></button>
       <button class="btn btn-green btn-sm" onclick="baixarPDF(${o.id},false)" title="PDF cliente"><i class="ti ti-file-download"></i></button>
       <button class="btn btn-purple btn-sm" onclick="baixarPDF(${o.id},true)" title="PDF interno"><i class="ti ti-file-invoice"></i></button>
@@ -2518,6 +2519,110 @@ function salvarOrc(){
   DB.set('pagamentos',pa);
   closeModal();toast('Orçamento #'+num+' criado!');registrarLog('Novo orçamento', '#'+num+' — '+cli.nome+' — '+brl(total));pages.orcamentos();
 }
+function editarOrc(id){
+  const orcs=DB.get('orcamentos')||[];
+  const o=orcs.find(x=>x.id===id);if(!o)return;
+  const cl=DB.get('clientes')||[],eq=DB.get('equipamentos')||[];
+  // Carregar itens existentes
+  orcItens=(o.itens||[]).map(i=>({...i}));
+  const desconto=o.desconto_val||0;
+  const descontoTipo=o.desconto_tipo||'R$';
+  const frete=o.frete||0;
+
+  openModal('Editar Orçamento #'+o.num,`
+  <div class="form-row"><div class="form-group"><label>Cliente</label>
+    <div style="display:flex;gap:6px">
+      <select id="f-cli" style="flex:1" onchange="toggleAvulso(this.value)">
+        <option value="">— Orçamento avulso (sem cliente) —</option>
+        ${cl.map(cli=>`<option value="${cli.id}" ${cli.id===o.cliente_id?'selected':''}>${cli.nome}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+  <div class="form-group"><label>Tipo de evento</label><input id="f-evento" value="${o.evento||''}"></div></div>
+  <div id="row-avulso" class="form-row single" style="${o.cliente_id?'display:none':''}">
+    <div class="form-group"><label>Nome do cliente (avulso)</label>
+      <input id="f-nome-avulso" value="${o.cliente_id?'':o.cliente||''}">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>Data do evento</label><input id="f-data" type="date" value="${o.data_evento||''}" onchange="renderOrcItens()"></div>
+    <div class="form-group"><label>Devolução</label><input id="f-ret" type="date" value="${o.data_ret||''}" onchange="renderOrcItens()"></div>
+  </div>
+  <div class="form-row single"><div class="form-group"><label>Endereço</label><input id="f-local" value="${o.local||''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>Equipamento</label>
+    <select id="f-eq-sel" onchange="filtrarEqOrc()">
+      ${(()=>{const vistos={};return eq.filter(e=>{if(vistos[e.nome])return false;vistos[e.nome]=true;return true;}).map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');})()}
+    </select></div>
+    <div class="form-group"><label>Qtd</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="f-eq-qtd" type="number" value="1" min="1" style="width:70px">
+        <button class="btn btn-primary btn-sm" onclick="addItemOrc()"><i class="ti ti-plus"></i> Add</button>
+      </div>
+    </div>
+  </div>
+  <div id="orc-alerta-estoque" style="display:none"></div>
+  <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
+  <div class="form-row">
+    <div class="form-group"><label>Frete (R$)</label><input id="f-frete" type="number" value="${frete||0}" min="0" onchange="renderOrcItens()"></div>
+    <div class="form-group"><label>Desconto</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="f-desconto-val" type="number" value="${desconto||0}" min="0" placeholder="0" onchange="renderOrcItens()" style="flex:1">
+        <select id="f-desconto-tipo" onchange="renderOrcItens()" style="width:60px;padding:8px 6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--txt);font-size:13px">
+          <option value="R$" ${descontoTipo==='R$'?'selected':''}>R$</option>
+          <option value="%" ${descontoTipo==='%'?'selected':''}>%</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div id="orc-total" style="display:none" class="total-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><div class="tlabel">Subtotal</div><div id="orc-sub-val" style="font-size:13px;color:var(--txt2)">R$ 0,00</div></div>
+      <div id="orc-desconto-box" style="display:none"><div class="tlabel">Desconto</div><div id="orc-desconto-val" style="font-size:13px;color:var(--red)">- R$ 0,00</div></div>
+      <div><div class="tlabel">Total</div><div class="tval" id="orc-total-val">R$ 0,00</div></div>
+    </div>
+  </div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarEdicaoOrc(${id})"><i class="ti ti-check"></i> Salvar alterações</button>`);
+  setTimeout(renderOrcItens, 50);
+}
+
+function salvarEdicaoOrc(id){
+  const orcs=DB.get('orcamentos')||[];
+  const idx=orcs.findIndex(x=>x.id===id);if(idx<0)return;
+  const o=orcs[idx];
+  const cl=DB.get('clientes')||[];
+  const cid=$('f-cli')?.value?parseInt($('f-cli').value):null;
+  const cli=cl.find(c=>c.id===cid)||null;
+  const ev=$('f-evento')?.value?.trim(),d1=$('f-data')?.value,d2=$('f-ret')?.value;
+  if(!ev||!d1||!d2){toast('Preencha evento e datas',false);return;}
+  if(!orcItens.length){toast('Adicione pelo menos um item',false);return;}
+  const dias=Math.max(1,Math.round((new Date(d2)-new Date(d1))/86400000));
+  orcItens.forEach(i=>{const calc=calcDiariasEfetivas(dias,i.unitario);i.diarias=calc.diariasCobranca;});
+  const frete=parseFloat($('f-frete')?.value||0);
+  const descontoVal=parseFloat($('f-desconto-val')?.value||0);
+  const descontoTipoSel=$('f-desconto-tipo')?.value||'R$';
+  const sub=orcItens.reduce((s,i)=>s+i.qtd*i.diarias*i.unitario,0);
+  const descontoReais=descontoTipoSel==='%'?(sub*descontoVal/100):descontoVal;
+  const total=Math.max(0,sub+frete-descontoReais);
+  const nomeCliente=cli?cli.nome:($('f-nome-avulso')?.value?.trim()||o.cliente||'Avulso');
+  orcs[idx]={...o,
+    cliente_id:cid, cliente:nomeCliente, evento:ev,
+    data_evento:d1, data_ret:d2,
+    local:$('f-local')?.value||'',
+    itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diarias:i.diarias,unitario:i.unitario})),
+    frete, desconto:descontoReais, desconto_tipo:descontoTipoSel, desconto_val:descontoVal, total
+  };
+  DB.set('orcamentos',orcs);
+  // Atualizar pagamento vinculado
+  const pags=DB.get('pagamentos')||[];
+  const pi=pags.findIndex(p=>p.orc_num===o.num);
+  if(pi>=0){pags[pi].valor=total;pags[pi].cliente=nomeCliente;DB.set('pagamentos',pags);}
+  registrarLog('Editar orçamento','#'+o.num+' — '+nomeCliente);
+  toast('Orçamento atualizado!');
+  closeModal();
+  pages.orcamentos();
+}
+
 function verOrc(id){
   const o=(DB.get('orcamentos')||[]).find(x=>x.id===id);if(!o)return;
   openModal(`Orçamento #${o.num}`,`
