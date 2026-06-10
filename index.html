@@ -2545,8 +2545,8 @@ function editarOrc(id){
     </div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label>Data do evento</label><input id="f-data" type="date" value="${o.data_evento||''}" onchange="renderOrcItens()"></div>
-    <div class="form-group"><label>Devolução</label><input id="f-ret" type="date" value="${o.data_ret||''}" onchange="renderOrcItens()"></div>
+    <div class="form-group"><label>Data do evento</label><input id="f-data" type="date" value="${(o.data_evento||'').substring(0,10)}" onchange="renderOrcItens()"></div>
+    <div class="form-group"><label>Devolução</label><input id="f-ret" type="date" value="${(o.data_ret||'').substring(0,10)}" onchange="renderOrcItens()"></div>
   </div>
   <div class="form-row single"><div class="form-group"><label>Endereço</label><input id="f-local" value="${o.local||''}"></div></div>
   <div class="form-row"><div class="form-group"><label>Equipamento</label>
