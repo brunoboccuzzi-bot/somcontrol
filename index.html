@@ -111,14 +111,14 @@ input[readonly]{opacity:.6;cursor:default}
 .cal-day.today{border-color:var(--blue);background:rgba(79,142,247,.06)}
 .cal-day.other-month .day-num{color:var(--txt3)}
 .day-num{font-size:12px;font-weight:700;margin-bottom:3px}
-.cal-event.blue{background:var(--blue)}.cal-event{
+.cal-event.blue{background:var(--blue)}
 .tooltip-agenda{
-  position:absolute;z-index:100;background:var(--surface);border:1px solid var(--border2);
+  position:fixed;z-index:999;background:var(--surface);border:1px solid var(--border2);
   border-radius:10px;padding:10px 12px;min-width:180px;max-width:240px;
-  box-shadow:0 8px 24px rgba(0,0,0,.3);pointer-events:none;
-  font-size:12px;color:var(--txt);line-height:1.5;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);pointer-events:none;
+  font-size:12px;color:var(--txt);line-height:1.5;display:none;
 }
-.tooltip-agenda .tip-title{font-weight:700;font-size:13px;margin-bottom:4px}
+.tooltip-agenda .tip-title{font-weight:700;font-size:13px;margin-bottom:2px}
 .tooltip-agenda .tip-hora{color:var(--txt3);font-size:11px;margin-bottom:6px}
 .tooltip-agenda .tip-col{display:flex;align-items:center;gap:6px;margin-top:4px}
 .tooltip-agenda .tip-av{width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -226,14 +226,14 @@ input[readonly]{opacity:.6;cursor:default}
   /* Calendário */
   .cal-day{ min-height:44px;padding:3px; }
   .day-num{ font-size:10px; }
-  .cal-event.blue{background:var(--blue)}.cal-event{
+  .cal-event.blue{background:var(--blue)}
 .tooltip-agenda{
-  position:absolute;z-index:100;background:var(--surface);border:1px solid var(--border2);
+  position:fixed;z-index:999;background:var(--surface);border:1px solid var(--border2);
   border-radius:10px;padding:10px 12px;min-width:180px;max-width:240px;
-  box-shadow:0 8px 24px rgba(0,0,0,.3);pointer-events:none;
-  font-size:12px;color:var(--txt);line-height:1.5;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);pointer-events:none;
+  font-size:12px;color:var(--txt);line-height:1.5;display:none;
 }
-.tooltip-agenda .tip-title{font-weight:700;font-size:13px;margin-bottom:4px}
+.tooltip-agenda .tip-title{font-weight:700;font-size:13px;margin-bottom:2px}
 .tooltip-agenda .tip-hora{color:var(--txt3);font-size:11px;margin-bottom:6px}
 .tooltip-agenda .tip-col{display:flex;align-items:center;gap:6px;margin-top:4px}
 .tooltip-agenda .tip-av{width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -1020,11 +1020,17 @@ function showTooltipAgenda(evt, id){
     `:`<div style="font-size:11px;color:var(--txt3);margin-top:4px">Nenhum colaborador escalado</div>`}`;
 
   tip.style.display='block';
-  // Posicionar próximo ao mouse
-  const x=evt.clientX, y=evt.clientY;
-  const tw=tip.offsetWidth||220, th=tip.offsetHeight||100;
-  tip.style.left=(x+tw+16>window.innerWidth?x-tw-8:x+12)+'px';
-  tip.style.top=(y+th+8>window.innerHeight?y-th-8:y+8)+'px';
+  tip.style.left='-9999px'; // posicionar fora para medir
+  tip.style.top='-9999px';
+  // Calcular posição após render
+  requestAnimationFrame(()=>{
+    const x=evt.clientX, y=evt.clientY;
+    const tw=tip.offsetWidth||220, th=tip.offsetHeight||120;
+    const left=x+tw+20>window.innerWidth?x-tw-10:x+14;
+    const top=y+th+10>window.innerHeight?y-th-10:y+10;
+    tip.style.left=Math.max(8,left)+'px';
+    tip.style.top=Math.max(8,top)+'px';
+  });
 }
 
 function hideTooltipAgenda(){
