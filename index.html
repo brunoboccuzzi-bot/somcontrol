@@ -1741,15 +1741,20 @@ agenda(ym=null){
       }
     }
   });
-  // Adicionar eventos manuais da agenda
+  // Adicionar eventos manuais da agenda — iterar todo o período
   evts.forEach(ev=>{
     if(!ev.data) return;
-    const d=new Date(ev.data+'T12:00');
-    if(d.getFullYear()===y && d.getMonth()===m){
-      const dia=d.getDate();
-      if(!diasComOrc[dia]) diasComOrc[dia]=[];
-      const horaLabel=ev.hora_ini?ev.hora_ini:'';
-      diasComOrc[dia].push({id:'ev_'+ev.id,cliente:ev.titulo,evento:ev.descricao||'',hora:horaLabel,status:'evento',_isEvento:true,_ev:ev});
+    const inicio=new Date(ev.data+'T12:00');
+    const fim=new Date((ev.data_fim||ev.data)+'T12:00');
+    const horaLabel=ev.hora_ini?ev.hora_ini:'';
+    for(let dt=new Date(inicio);dt<=fim;dt.setDate(dt.getDate()+1)){
+      if(dt.getFullYear()===y && dt.getMonth()===m){
+        const dia=dt.getDate();
+        if(!diasComOrc[dia]) diasComOrc[dia]=[];
+        if(!diasComOrc[dia].find(x=>x.id==='ev_'+ev.id)){
+          diasComOrc[dia].push({id:'ev_'+ev.id,cliente:ev.titulo,evento:ev.descricao||'',hora:horaLabel,status:'evento',_isEvento:true,_ev:ev});
+        }
+      }
     }
   });
   $('content').innerHTML=`
