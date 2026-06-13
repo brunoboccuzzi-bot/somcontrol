@@ -981,6 +981,7 @@ function verEvManual(evId){
   openModal('📅 '+ev.titulo,`
     <div style="margin-bottom:12px">
       <div style="font-size:13px;color:var(--txt3);margin-bottom:4px"><i class="ti ti-calendar"></i> ${fmtD(ev.data)}${ev.data_fim&&ev.data_fim!==ev.data?' → '+fmtD(ev.data_fim):''}</div>
+      ${ev.hora_ini?`<div style="font-size:13px;color:var(--txt3);margin-bottom:4px"><i class="ti ti-clock"></i> ${ev.hora_ini}${ev.hora_fim?' → '+ev.hora_fim:''}</div>`:''}
       ${ev.local?`<div style="font-size:13px;color:var(--txt3)"><i class="ti ti-map-pin"></i> ${ev.local}</div>`:''}
       ${ev.descricao?`<div style="margin-top:10px;font-size:13px">${ev.descricao}</div>`:''}
     </div>
@@ -1006,6 +1007,10 @@ function novoEventoAgenda(dataInicial=''){
   <div class="form-row">
     <div class="form-group"><label>Data início</label><input id="ev-data" type="date" value="${dataInicial}"></div>
     <div class="form-group"><label>Data fim</label><input id="ev-data-fim" type="date" value="${dataInicial}"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>Horário início</label><input id="ev-hora-ini" type="time" value="08:00"></div>
+    <div class="form-group"><label>Horário fim</label><input id="ev-hora-fim" type="time" value="18:00"></div>
   </div>
   <div class="form-row single"><div class="form-group"><label>Local</label>
     <input id="ev-local" placeholder="Endereço ou local do evento">
@@ -1039,6 +1044,8 @@ function salvarEvManual(idEdit=null){
   const obj={
     id:idEdit||String(Date.now()),
     titulo,data,data_fim:dataFim,
+    hora_ini:$('ev-hora-ini')?.value||'',
+    hora_fim:$('ev-hora-fim')?.value||'',
     local:$('ev-local')?.value||'',
     descricao:$('ev-desc')?.value||'',
     colaboradores,
@@ -1070,6 +1077,10 @@ function editarEvManual(evId){
   <div class="form-row">
     <div class="form-group"><label>Data início</label><input id="ev-data" type="date" value="${ev.data}"></div>
     <div class="form-group"><label>Data fim</label><input id="ev-data-fim" type="date" value="${ev.data_fim||ev.data}"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>Horário início</label><input id="ev-hora-ini" type="time" value="${ev.hora_ini||'08:00'}"></div>
+    <div class="form-group"><label>Horário fim</label><input id="ev-hora-fim" type="time" value="${ev.hora_fim||'18:00'}"></div>
   </div>
   <div class="form-row single"><div class="form-group"><label>Local</label>
     <input id="ev-local" value="${ev.local||''}">
@@ -1659,7 +1670,8 @@ agenda(ym=null){
     if(d.getFullYear()===y && d.getMonth()===m){
       const dia=d.getDate();
       if(!diasComOrc[dia]) diasComOrc[dia]=[];
-      diasComOrc[dia].push({id:'ev_'+ev.id,cliente:ev.titulo,evento:ev.descricao||'',status:'evento',_isEvento:true,_ev:ev});
+      const horaLabel=ev.hora_ini?ev.hora_ini:'';
+      diasComOrc[dia].push({id:'ev_'+ev.id,cliente:ev.titulo,evento:ev.descricao||'',hora:horaLabel,status:'evento',_isEvento:true,_ev:ev});
     }
   });
   $('content').innerHTML=`
@@ -1679,7 +1691,7 @@ agenda(ym=null){
     const dataStr=c.cur?`${y}-${String(m+1).padStart(2,'0')}-${String(c.d).padStart(2,'0')}`:'';
     return `<div class="cal-day${!c.cur?' other-month':''}${today?' today':''}" ${c.cur?`onclick="diaAgendaClick('${dataStr}')" style="cursor:pointer"`:''}">
       <div class="day-num">${c.d}</div>
-      ${evs.map(e=>`<div class="cal-event ${e._isEvento?'blue':e.status==='aprovado'?'green':'amber'}" title="${e.cliente}${e.evento?' — '+e.evento:''}" onclick="event.stopPropagation();${e._isEvento?`verEvManual('${e._ev.id}')`:`verEventoAgenda(${e.id})`}">${e.cliente}</div>`).join('')}
+      ${evs.map(e=>`<div class="cal-event ${e._isEvento?'blue':e.status==='aprovado'?'green':'amber'}" title="${e.cliente}${e.evento?' — '+e.evento:''}" onclick="event.stopPropagation();${e._isEvento?`verEvManual('${e._ev.id}')`:`verEventoAgenda(${e.id})`}">${e._isEvento&&e.hora?e.hora+' ':''  }${e.cliente}</div>`).join('')}
     </div>`;
   }).join('')}</div>
   <div style="display:flex;gap:12px;font-size:12px;color:var(--txt3);margin-top:14px">
