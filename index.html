@@ -975,6 +975,9 @@ function showTooltipAgenda(evt, id){
   if(!tip)return;
   const orcs=DB.get('orcamentos')||[];
   const evts=DB.get('eventos_agenda')||[];
+  const escalas=DB.get('escalas')||[];
+  const colsAgenda=DB.get('colaboradores')||[];
+  const filtroColId=filtroCol?parseInt(filtroCol):null;
   const cols=DB.get('colaboradores')||[];
   let titulo='',hora='',local='',colaboradores=[];
 
@@ -1029,6 +1032,8 @@ function hideTooltipAgenda(){
   if(tip) tip.style.display='none';
 }
 
+let _agendaFiltroCol=null;
+
 function navAgenda(dir){
   const now=new Date();
   let y=_agendaYM?_agendaYM[0]:now.getFullYear();
@@ -1036,7 +1041,7 @@ function navAgenda(dir){
   if(dir===0){y=now.getFullYear();m=now.getMonth();}
   else{m+=dir;if(m<0){m=11;y--;}if(m>11){m=0;y++;}}
   _agendaYM=[y,m];
-  pages.agenda([y,m]);
+  pages.agenda([y,m], _agendaFiltroCol);
 }
 
 function diaAgendaClick(dataStr){
@@ -1049,6 +1054,9 @@ function verEventoAgenda(orcId){
 
 function verEvManual(evId){
   const evts=DB.get('eventos_agenda')||[];
+  const escalas=DB.get('escalas')||[];
+  const colsAgenda=DB.get('colaboradores')||[];
+  const filtroColId=filtroCol?parseInt(filtroCol):null;
   const ev=evts.find(e=>e.id===evId||e.id===parseInt(evId));
   if(!ev)return;
   const cols=DB.get('colaboradores')||[];
@@ -1116,6 +1124,9 @@ function salvarEvManual(idEdit=null){
   const cols=DB.get('colaboradores')||[];
   const colaboradores=cols.filter(co=>document.getElementById('ev-col-'+co.id)?.checked).map(co=>co.id);
   const evts=DB.get('eventos_agenda')||[];
+  const escalas=DB.get('escalas')||[];
+  const colsAgenda=DB.get('colaboradores')||[];
+  const filtroColId=filtroCol?parseInt(filtroCol):null;
   const obj={
     id:idEdit||String(Date.now()),
     titulo,data,data_fim:dataFim,
@@ -1142,6 +1153,9 @@ function salvarEvManual(idEdit=null){
 
 function editarEvManual(evId){
   const evts=DB.get('eventos_agenda')||[];
+  const escalas=DB.get('escalas')||[];
+  const colsAgenda=DB.get('colaboradores')||[];
+  const filtroColId=filtroCol?parseInt(filtroCol):null;
   const ev=evts.find(e=>e.id===evId||e.id===parseInt(evId));
   if(!ev)return;
   const cols=DB.get('colaboradores')||[];
@@ -1180,6 +1194,9 @@ function editarEvManual(evId){
 function delEvManual(evId){
   if(!confirm('Excluir este evento?'))return;
   const evts=DB.get('eventos_agenda')||[];
+  const escalas=DB.get('escalas')||[];
+  const colsAgenda=DB.get('colaboradores')||[];
+  const filtroColId=filtroCol?parseInt(filtroCol):null;
   DB.set('eventos_agenda',evts.filter(e=>e.id!==evId&&e.id!==parseInt(evId)));
   toast('Evento excluído!');
   closeModal();
@@ -1710,9 +1727,12 @@ orcamentos(){
     <span style="display:flex;align-items:center;gap:4px"><span style="background:var(--purple);color:#0b0b0f;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">INT</span> Interno (com todos os valores)</span>
   </div>`;
 },
-agenda(ym=null){
+agenda(ym=null, filtroCol=null){
   const or=DB.get('orcamentos')||[];
   const evts=DB.get('eventos_agenda')||[];
+  const escalas=DB.get('escalas')||[];
+  const colsAgenda=DB.get('colaboradores')||[];
+  const filtroColId=filtroCol?parseInt(filtroCol):null;
   const now=new Date();
   const y=ym?ym[0]:now.getFullYear();
   const m=ym?ym[1]:now.getMonth();
@@ -1731,28 +1751,41 @@ agenda(ym=null){
   const diasComOrc={};
   or.forEach(o=>{
     if(!o.data_evento) return;
+    // Filtrar por colaborador se selecionado
+    if(filtroColId){
+      const escala=escalas.find(e=>e.orc_id===o.id);
+      if(!escala||(escala.colab_ids||[]).indexOf(filtroColId)<0) return;
+    }
     const inicio = new Date(o.data_evento+'T12:00');
     const fim    = new Date((o.data_ret||o.data_evento)+'T12:00');
     for(let dt=new Date(inicio); dt<=fim; dt.setDate(dt.getDate()+1)){
       if(dt.getFullYear()===y && dt.getMonth()===m){
         const dia = dt.getDate();
         if(!diasComOrc[dia]) diasComOrc[dia]=[];
-        if(!diasComOrc[dia].find(x=>x.id===o.id)) diasComOrc[dia].push(o);
+        if(!diasComOrc[dia].find(x=>x.id===o.id)){
+          // Adicionar info de colaboradores escalados
+          const escala=escalas.find(e=>e.orc_id===o.id);
+          const colsEscalados=escala?(escala.colab_ids||[]).map(id=>colsAgenda.find(c=>c.id===id)).filter(Boolean):[];
+          diasComOrc[dia].push({...o, _colsEscalados:colsEscalados});
+        }
       }
     }
   });
   // Adicionar eventos manuais da agenda — iterar todo o período
   evts.forEach(ev=>{
     if(!ev.data) return;
+    // Filtrar por colaborador se selecionado
+    if(filtroColId&&!(ev.colaboradores||[]).includes(filtroColId)) return;
     const inicio=new Date(ev.data+'T12:00');
     const fim=new Date((ev.data_fim||ev.data)+'T12:00');
     const horaLabel=ev.hora_ini?ev.hora_ini:'';
+    const colsEv=(ev.colaboradores||[]).map(id=>colsAgenda.find(c=>c.id===id)).filter(Boolean);
     for(let dt=new Date(inicio);dt<=fim;dt.setDate(dt.getDate()+1)){
       if(dt.getFullYear()===y && dt.getMonth()===m){
         const dia=dt.getDate();
         if(!diasComOrc[dia]) diasComOrc[dia]=[];
         if(!diasComOrc[dia].find(x=>x.id==='ev_'+ev.id)){
-          diasComOrc[dia].push({id:'ev_'+ev.id,cliente:ev.titulo,evento:ev.descricao||'',hora:horaLabel,status:'evento',_isEvento:true,_ev:ev});
+          diasComOrc[dia].push({id:'ev_'+ev.id,cliente:ev.titulo,evento:ev.descricao||'',hora:horaLabel,status:'evento',_isEvento:true,_ev:ev,_colsEscalados:colsEv});
         }
       }
     }
@@ -1765,7 +1798,13 @@ agenda(ym=null){
       <button class="btn btn-secondary btn-sm" onclick="navAgenda(1)"><i class="ti ti-chevron-right"></i></button>
       <button class="btn btn-secondary btn-sm" onclick="navAgenda(0)">Hoje</button>
     </div>
-    <button class="btn btn-primary" onclick="novoEventoAgenda()"><i class="ti ti-plus"></i> Novo evento</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select onchange="_agendaFiltroCol=this.value||null;pages.agenda(_agendaYM||null,_agendaFiltroCol)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--txt)">
+        <option value="">Todos os colaboradores</option>
+        ${colsAgenda.map(co=>`<option value="${co.id}" ${filtroCol==co.id?'selected':''}>${co.nome}</option>`).join('')}
+      </select>
+      <button class="btn btn-primary" onclick="novoEventoAgenda()"><i class="ti ti-plus"></i> Novo evento</button>
+    </div>
   </div>
   <div class="cal-header-g">${dias.map(d=>`<div class="cal-day-name">${d}</div>`).join('')}</div>
   <div class="cal-grid">${cells.map(c=>{
@@ -1778,7 +1817,8 @@ agenda(ym=null){
         onclick="event.stopPropagation();${e._isEvento?`verEvManual('${e._ev.id}')`:`verEventoAgenda(${e.id})`}"
         onmouseenter="showTooltipAgenda(event,${e._isEvento?`'ev_${e._ev?.id}'`:`${e.id}`})"
         onmouseleave="hideTooltipAgenda()"
-      >${e._isEvento&&e.hora?e.hora+' ':''  }${e.cliente}</div>`).join('')}
+      >${e._isEvento&&e.hora?e.hora+' ':''}${e.cliente}${e._colsEscalados&&e._colsEscalados.length&&filtroColId?` <span style="font-size:9px;opacity:.8">(${e._colsEscalados.map(c=>c.nome.split(' ')[0]).join(', ')})</span>`:''}
+        </div>`).join('')}
     </div>`;
   }).join('')}</div>
   <div style="display:flex;gap:12px;font-size:12px;color:var(--txt3);margin-top:14px">
