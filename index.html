@@ -111,7 +111,7 @@ input[readonly]{opacity:.6;cursor:default}
 .cal-day.today{border-color:var(--blue);background:rgba(79,142,247,.06)}
 .cal-day.other-month .day-num{color:var(--txt3)}
 .day-num{font-size:12px;font-weight:700;margin-bottom:3px}
-.cal-event{font-size:10px;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-event.blue{background:var(--blue)}.cal-event{font-size:10px;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-event.green{background:rgba(34,211,165,.2);color:var(--green)}
 .cal-event.amber{background:rgba(245,158,11,.2);color:var(--amber)}
 .usuarios-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:22px}
@@ -215,7 +215,7 @@ input[readonly]{opacity:.6;cursor:default}
   /* Calendário */
   .cal-day{ min-height:44px;padding:3px; }
   .day-num{ font-size:10px; }
-  .cal-event{ font-size:8px;padding:1px 2px; }
+  .cal-event.blue{background:var(--blue)}.cal-event{ font-size:8px;padding:1px 2px; }
   .cal-day-name{ font-size:10px; }
 
   /* Section header */
@@ -951,6 +951,155 @@ function openLightbox(src,leg,dt){
 }
 function closeLightbox(){$('lightbox').classList.remove('open');}
 
+// ── AGENDA ───────────────────────────────────────────
+let _agendaYM = null;
+
+function navAgenda(dir){
+  const now=new Date();
+  let y=_agendaYM?_agendaYM[0]:now.getFullYear();
+  let m=_agendaYM?_agendaYM[1]:now.getMonth();
+  if(dir===0){y=now.getFullYear();m=now.getMonth();}
+  else{m+=dir;if(m<0){m=11;y--;}if(m>11){m=0;y++;}}
+  _agendaYM=[y,m];
+  pages.agenda([y,m]);
+}
+
+function diaAgendaClick(dataStr){
+  novoEventoAgenda(dataStr);
+}
+
+function verEventoAgenda(orcId){
+  verOrc(orcId);
+}
+
+function verEvManual(evId){
+  const evts=DB.get('eventos_agenda')||[];
+  const ev=evts.find(e=>e.id===evId||e.id===parseInt(evId));
+  if(!ev)return;
+  const cols=DB.get('colaboradores')||[];
+  const escalados=(ev.colaboradores||[]).map(id=>cols.find(c=>c.id===id)).filter(Boolean);
+  openModal('📅 '+ev.titulo,`
+    <div style="margin-bottom:12px">
+      <div style="font-size:13px;color:var(--txt3);margin-bottom:4px"><i class="ti ti-calendar"></i> ${fmtD(ev.data)}${ev.data_fim&&ev.data_fim!==ev.data?' → '+fmtD(ev.data_fim):''}</div>
+      ${ev.local?`<div style="font-size:13px;color:var(--txt3)"><i class="ti ti-map-pin"></i> ${ev.local}</div>`:''}
+      ${ev.descricao?`<div style="margin-top:10px;font-size:13px">${ev.descricao}</div>`:''}
+    </div>
+    <div style="margin-top:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:8px">COLABORADORES ESCALADOS</div>
+      ${escalados.length?escalados.map(co=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:6px">
+          <div style="width:28px;height:28px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700">${co.nome[0]}</div>
+          <div><div style="font-size:13px;font-weight:700">${co.nome}</div><div style="font-size:11px;color:var(--txt3)">${co.funcao||'—'}</div></div>
+        </div>`).join(''):'<div style="font-size:13px;color:var(--txt3)">Nenhum colaborador escalado</div>'}
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+     <button class="btn btn-secondary" onclick="closeModal();editarEvManual('${ev.id}')"><i class="ti ti-edit"></i> Editar</button>
+     <button class="btn btn-danger" onclick="delEvManual('${ev.id}')"><i class="ti ti-trash"></i></button>`);
+}
+
+function novoEventoAgenda(dataInicial=''){
+  const cols=DB.get('colaboradores')||[];
+  openModal('Novo evento na agenda',`
+  <div class="form-row single"><div class="form-group"><label>Título do evento</label>
+    <input id="ev-titulo" placeholder="Nome do evento, show, instalação...">
+  </div></div>
+  <div class="form-row">
+    <div class="form-group"><label>Data início</label><input id="ev-data" type="date" value="${dataInicial}"></div>
+    <div class="form-group"><label>Data fim</label><input id="ev-data-fim" type="date" value="${dataInicial}"></div>
+  </div>
+  <div class="form-row single"><div class="form-group"><label>Local</label>
+    <input id="ev-local" placeholder="Endereço ou local do evento">
+  </div></div>
+  <div class="form-row single"><div class="form-group"><label>Descrição / Observações</label>
+    <textarea id="ev-desc" placeholder="Detalhes do evento..."></textarea>
+  </div></div>
+  ${cols.length?`<div class="form-group"><label>Escalar colaboradores</label>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;background:var(--surface2);border-radius:8px;padding:10px">
+      ${cols.map(co=>`
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600">
+          <input type="checkbox" id="ev-col-${co.id}" value="${co.id}" style="width:16px;height:16px">
+          <span>${co.nome}</span>
+          <span class="badge badge-blue" style="margin-left:auto">${co.funcao||'—'}</span>
+        </label>`).join('')}
+    </div>
+  </div>`:'<div style="font-size:12px;color:var(--txt3)">Nenhum colaborador cadastrado</div>'}`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarEvManual()"><i class="ti ti-check"></i> Salvar evento</button>`);
+}
+
+function salvarEvManual(idEdit=null){
+  const titulo=$('ev-titulo')?.value?.trim();
+  if(!titulo){toast('Digite o título do evento',false);return;}
+  const data=$('ev-data')?.value;
+  const dataFim=$('ev-data-fim')?.value||data;
+  if(!data){toast('Selecione a data',false);return;}
+  const cols=DB.get('colaboradores')||[];
+  const colaboradores=cols.filter(co=>document.getElementById('ev-col-'+co.id)?.checked).map(co=>co.id);
+  const evts=DB.get('eventos_agenda')||[];
+  const obj={
+    id:idEdit||String(Date.now()),
+    titulo,data,data_fim:dataFim,
+    local:$('ev-local')?.value||'',
+    descricao:$('ev-desc')?.value||'',
+    colaboradores,
+    criado:new Date().toISOString()
+  };
+  if(idEdit){
+    const i=evts.findIndex(e=>e.id===idEdit);
+    if(i>=0) evts[i]=obj; else evts.push(obj);
+  } else {
+    evts.push(obj);
+  }
+  DB.set('eventos_agenda',evts);
+  registrarLog(idEdit?'Editar evento agenda':'Novo evento agenda',titulo);
+  toast('Evento salvo!');
+  closeModal();
+  const now=new Date();
+  pages.agenda(_agendaYM||null);
+}
+
+function editarEvManual(evId){
+  const evts=DB.get('eventos_agenda')||[];
+  const ev=evts.find(e=>e.id===evId||e.id===parseInt(evId));
+  if(!ev)return;
+  const cols=DB.get('colaboradores')||[];
+  openModal('Editar evento',`
+  <div class="form-row single"><div class="form-group"><label>Título</label>
+    <input id="ev-titulo" value="${ev.titulo}">
+  </div></div>
+  <div class="form-row">
+    <div class="form-group"><label>Data início</label><input id="ev-data" type="date" value="${ev.data}"></div>
+    <div class="form-group"><label>Data fim</label><input id="ev-data-fim" type="date" value="${ev.data_fim||ev.data}"></div>
+  </div>
+  <div class="form-row single"><div class="form-group"><label>Local</label>
+    <input id="ev-local" value="${ev.local||''}">
+  </div></div>
+  <div class="form-row single"><div class="form-group"><label>Descrição</label>
+    <textarea id="ev-desc">${ev.descricao||''}</textarea>
+  </div></div>
+  ${cols.length?`<div class="form-group"><label>Colaboradores escalados</label>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;background:var(--surface2);border-radius:8px;padding:10px">
+      ${cols.map(co=>`
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600">
+          <input type="checkbox" id="ev-col-${co.id}" value="${co.id}" ${(ev.colaboradores||[]).includes(co.id)?'checked':''} style="width:16px;height:16px">
+          <span>${co.nome}</span>
+          <span class="badge badge-blue" style="margin-left:auto">${co.funcao||'—'}</span>
+        </label>`).join('')}
+    </div>
+  </div>`:''}`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarEvManual('${ev.id}')"><i class="ti ti-check"></i> Salvar</button>`);
+}
+
+function delEvManual(evId){
+  if(!confirm('Excluir este evento?'))return;
+  const evts=DB.get('eventos_agenda')||[];
+  DB.set('eventos_agenda',evts.filter(e=>e.id!==evId&&e.id!==parseInt(evId)));
+  toast('Evento excluído!');
+  closeModal();
+  pages.agenda(_agendaYM||null);
+}
+
 function registrarLog(acao, detalhes=''){
   try {
     const logs = JSON.parse(localStorage.getItem('sc_logs')||'[]');
@@ -1475,9 +1624,12 @@ orcamentos(){
     <span style="display:flex;align-items:center;gap:4px"><span style="background:var(--purple);color:#0b0b0f;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">INT</span> Interno (com todos os valores)</span>
   </div>`;
 },
-agenda(){
+agenda(ym=null){
   const or=DB.get('orcamentos')||[];
-  const now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  const evts=DB.get('eventos_agenda')||[];
+  const now=new Date();
+  const y=ym?ym[0]:now.getFullYear();
+  const m=ym?ym[1]:now.getMonth();
   const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const dias=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const first=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),dip=new Date(y,m,0).getDate();
@@ -1492,27 +1644,42 @@ agenda(){
     if(!o.data_evento) return;
     const inicio = new Date(o.data_evento+'T12:00');
     const fim    = new Date((o.data_ret||o.data_evento)+'T12:00');
-    // iterar cada dia do período
     for(let dt=new Date(inicio); dt<=fim; dt.setDate(dt.getDate()+1)){
       if(dt.getFullYear()===y && dt.getMonth()===m){
         const dia = dt.getDate();
         if(!diasComOrc[dia]) diasComOrc[dia]=[];
-        // evitar duplicatas
-        if(!diasComOrc[dia].find(x=>x.id===o.id)){
-          diasComOrc[dia].push(o);
-        }
+        if(!diasComOrc[dia].find(x=>x.id===o.id)) diasComOrc[dia].push(o);
       }
     }
   });
+  // Adicionar eventos manuais da agenda
+  evts.forEach(ev=>{
+    if(!ev.data) return;
+    const d=new Date(ev.data+'T12:00');
+    if(d.getFullYear()===y && d.getMonth()===m){
+      const dia=d.getDate();
+      if(!diasComOrc[dia]) diasComOrc[dia]=[];
+      diasComOrc[dia].push({id:'ev_'+ev.id,cliente:ev.titulo,evento:ev.descricao||'',status:'evento',_isEvento:true,_ev:ev});
+    }
+  });
   $('content').innerHTML=`
-  <div class="section-header"><h2>${meses[m]} ${y}</h2></div>
+  <div class="section-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="btn btn-secondary btn-sm" onclick="navAgenda(-1)"><i class="ti ti-chevron-left"></i></button>
+      <h2 style="min-width:160px;text-align:center">${meses[m]} ${y}</h2>
+      <button class="btn btn-secondary btn-sm" onclick="navAgenda(1)"><i class="ti ti-chevron-right"></i></button>
+      <button class="btn btn-secondary btn-sm" onclick="navAgenda(0)">Hoje</button>
+    </div>
+    <button class="btn btn-primary" onclick="novoEventoAgenda()"><i class="ti ti-plus"></i> Novo evento</button>
+  </div>
   <div class="cal-header-g">${dias.map(d=>`<div class="cal-day-name">${d}</div>`).join('')}</div>
   <div class="cal-grid">${cells.map(c=>{
     const today=c.cur&&c.d===now.getDate();
     const evs=c.cur?(diasComOrc[c.d]||[]):[];
-    return `<div class="cal-day${!c.cur?' other-month':''}${today?' today':''}">
+    const dataStr=c.cur?`${y}-${String(m+1).padStart(2,'0')}-${String(c.d).padStart(2,'0')}`:'';
+    return `<div class="cal-day${!c.cur?' other-month':''}${today?' today':''}" ${c.cur?`onclick="diaAgendaClick('${dataStr}')" style="cursor:pointer"`:''}">
       <div class="day-num">${c.d}</div>
-      ${evs.map(e=>`<div class="cal-event ${e.status==='aprovado'?'green':'amber'}" title="${e.cliente} — ${e.evento}">${e.cliente}</div>`).join('')}
+      ${evs.map(e=>`<div class="cal-event ${e._isEvento?'blue':e.status==='aprovado'?'green':'amber'}" title="${e.cliente}${e.evento?' — '+e.evento:''}" onclick="event.stopPropagation();${e._isEvento?`verEvManual('${e._ev.id}')`:`verEventoAgenda(${e.id})`}">${e.cliente}</div>`).join('')}
     </div>`;
   }).join('')}</div>
   <div style="display:flex;gap:12px;font-size:12px;color:var(--txt3);margin-top:14px">
