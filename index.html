@@ -1186,6 +1186,99 @@ function delEvManual(evId){
   pages.agenda(_agendaYM||null);
 }
 
+function addTarefaRapida(){
+  const input=$('input-tarefa-rapida');
+  const texto=input?.value?.trim();
+  if(!texto){input?.focus();return;}
+  const lista=DB.get('tarefas')||[];
+  lista.unshift({id:Date.now(),texto,feita:false,prioridade:'normal',cat:'',prazo:'',responsavel:'',criado:new Date().toISOString()});
+  DB.set('tarefas',lista);
+  pages.tarefas();
+}
+function novaTarefa(){
+  const cols=DB.get('colaboradores')||[];
+  const cats=[...new Set((DB.get('tarefas')||[]).map(t=>t.cat).filter(Boolean))];
+  openModal('Nova tarefa',`
+  <div class="form-row single"><div class="form-group"><label>Descrição</label>
+    <input id="f-tar-texto" placeholder="O que precisa ser feito?"></div></div>
+  <div class="form-row">
+    <div class="form-group"><label>Categoria</label>
+      <input id="f-tar-cat" placeholder="Depósito, Manutenção, Compras..." list="tar-cats">
+      <datalist id="tar-cats">${cats.map(c=>`<option value="${c}">`).join('')}</datalist>
+    </div>
+    <div class="form-group"><label>Prioridade</label>
+      <select id="f-tar-prio"><option value="normal">Normal</option><option value="alta">🔴 Urgente</option></select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>Prazo</label><input id="f-tar-prazo" type="date"></div>
+    <div class="form-group"><label>Responsável</label>
+      <select id="f-tar-resp">
+        <option value="">— Sem responsável —</option>
+        ${cols.map(co=>`<option value="${co.nome}">${co.nome}</option>`).join('')}
+      </select>
+    </div>
+  </div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarTarefa(0)">Salvar</button>`);
+  setTimeout(()=>$('f-tar-texto')?.focus(),100);
+}
+function editTarefa(id){
+  const t=(DB.get('tarefas')||[]).find(x=>x.id===id);if(!t)return;
+  const cols=DB.get('colaboradores')||[];
+  const cats=[...new Set((DB.get('tarefas')||[]).map(x=>x.cat).filter(Boolean))];
+  openModal('Editar tarefa',`
+  <div class="form-row single"><div class="form-group"><label>Descrição</label>
+    <input id="f-tar-texto" value="${t.texto}"></div></div>
+  <div class="form-row">
+    <div class="form-group"><label>Categoria</label>
+      <input id="f-tar-cat" value="${t.cat||''}" list="tar-cats">
+      <datalist id="tar-cats">${cats.map(c=>`<option value="${c}">`).join('')}</datalist>
+    </div>
+    <div class="form-group"><label>Prioridade</label>
+      <select id="f-tar-prio">
+        <option value="normal" ${t.prioridade!=='alta'?'selected':''}>Normal</option>
+        <option value="alta" ${t.prioridade==='alta'?'selected':''}>🔴 Urgente</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>Prazo</label><input id="f-tar-prazo" type="date" value="${t.prazo||''}"></div>
+    <div class="form-group"><label>Responsável</label>
+      <select id="f-tar-resp">
+        <option value="">— Sem responsável —</option>
+        ${cols.map(co=>`<option value="${co.nome}" ${t.responsavel===co.nome?'selected':''}>${co.nome}</option>`).join('')}
+      </select>
+    </div>
+  </div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="salvarTarefa(${id})">Salvar</button>`);
+}
+function salvarTarefa(id){
+  const texto=$('f-tar-texto')?.value?.trim();
+  if(!texto){toast('Digite a descrição',false);return;}
+  const lista=DB.get('tarefas')||[];
+  const obj={texto,cat:$('f-tar-cat')?.value?.trim()||'',prioridade:$('f-tar-prio')?.value||'normal',
+    prazo:$('f-tar-prazo')?.value||'',responsavel:$('f-tar-resp')?.value||'',feita:false};
+  if(id===0){obj.id=Date.now();obj.criado=new Date().toISOString();lista.unshift(obj);}
+  else{const i=lista.findIndex(x=>x.id===id);if(i>=0){obj.id=id;obj.feita=lista[i].feita;obj.criado=lista[i].criado;lista[i]=obj;}}
+  DB.set('tarefas',lista);closeModal();toast('Tarefa salva!');pages.tarefas();
+}
+function toggleTarefa(id){
+  const lista=DB.get('tarefas')||[];
+  const i=lista.findIndex(x=>x.id===id);
+  if(i>=0){lista[i].feita=!lista[i].feita;if(lista[i].feita)lista[i].feita_em=new Date().toISOString();DB.set('tarefas',lista);}
+  pages.tarefas();
+}
+function delTarefa(id){
+  if(!confirm('Excluir esta tarefa?'))return;
+  DB.set('tarefas',(DB.get('tarefas')||[]).filter(x=>x.id!==id));pages.tarefas();
+}
+function limparFeitas(){
+  if(!confirm('Remover todas as tarefas concluídas?'))return;
+  DB.set('tarefas',(DB.get('tarefas')||[]).filter(t=>!t.feita));
+  toast('Concluídas removidas!');pages.tarefas();
+}
 function registrarLog(acao, detalhes=''){
   try {
     const logs = JSON.parse(localStorage.getItem('sc_logs')||'[]');
@@ -1363,7 +1456,7 @@ function go(page){
       n.classList.add('active');
     }
   });
-  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',registros:'Registros de Eventos',usuarios:'Usuários',log:'Log de Atividades'};
+  const titles={dashboard:'Dashboard',clientes:'Clientes',equipamentos:'Equipamentos',orcamentos:'Orçamentos',agenda:'Agenda',pagamentos:'Pagamentos',relatorios:'Relatórios',colaboradores:'Colaboradores',escalas:'Escalas',registros:'Registros de Eventos',tarefas:'Tarefas',usuarios:'Usuários',log:'Log de Atividades'};
   $('page-title').textContent=titles[page]||page;
   // Chamar a função da página — tenta pages[page] primeiro, depois função global
   if(typeof pages[page]==='function') pages[page]();
@@ -1865,118 +1958,85 @@ colaboradores(){
 
 escalas(){
   const escalas=DB.get('escalas')||[];
-  const evts=DB.get('eventos_agenda')||[];
   const orcs=DB.get('orcamentos')||[];
   const cols=DB.get('colaboradores')||[];
-
-  // Montar lista unificada: escalas de orçamentos + eventos da agenda com colaboradores
-  const itens=[];
-
-  // Escalas vinculadas a orçamentos
-  escalas.forEach(es=>{
-    const orc=orcs.find(o=>o.id===es.orc_id)||{};
-    const escalados=(es.colab_ids||[]).map(id=>cols.find(c=>c.id===id)).filter(Boolean);
-    itens.push({
-      tipo:'orcamento',
-      titulo:orc.cliente||'—',
-      subtitulo:orc.evento||'',
-      data_ini:orc.data_evento||'',
-      data_fim:orc.data_ret||'',
-      hora_ini:'',hora_fim:'',
-      local:orc.local||'',
-      status:orc.status||'pendente',
-      colaboradores:escalados,
-      obs:es.obs||'',
-      id_es:es.id,
-      id_orc:orc.id
-    });
-  });
-
-  // Eventos manuais da agenda com colaboradores
-  evts.filter(ev=>(ev.colaboradores||[]).length>0).forEach(ev=>{
-    const escalados=(ev.colaboradores||[]).map(id=>cols.find(c=>c.id===id)).filter(Boolean);
-    itens.push({
-      tipo:'evento',
-      titulo:ev.titulo,
-      subtitulo:ev.descricao||'',
-      data_ini:ev.data||'',
-      data_fim:ev.data_fim||ev.data||'',
-      hora_ini:ev.hora_ini||'',
-      hora_fim:ev.hora_fim||'',
-      local:ev.local||'',
-      status:'evento',
-      colaboradores:escalados,
-      obs:'',
-      id_es:null,
-      id_ev:ev.id
-    });
-  });
-
-  // Ordenar por data
-  itens.sort((a,b)=>(a.data_ini||'').localeCompare(b.data_ini||''));
-
   $('content').innerHTML=`
-  <div class="section-header">
-    <h2>Escala de Colaboradores</h2>
-    <button class="btn btn-primary" onclick="novaEscala()"><i class="ti ti-plus"></i> Nova escala</button>
-  </div>
-
-  ${itens.length===0?`<div class="empty"><i class="ti ti-calendar-event"></i><p>Nenhuma escala criada ainda.</p></div>`:`
+  <div class="section-header"><h2>${escalas.length} escalas</h2>
+    <button class="btn btn-primary" onclick="novaEscala()"><i class="ti ti-plus"></i>Nova escala</button></div>
   <div class="table-wrap"><table>
-    <thead><tr>
-      <th>Evento / Cliente</th>
-      <th>Período</th>
-      <th>Horário</th>
-      <th>Local</th>
-      <th>Colaboradores</th>
-      <th>Status</th>
-      <th></th>
-    </tr></thead>
-    <tbody>
-      ${itens.map(it=>`<tr>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="width:8px;height:8px;border-radius:50%;background:${it.tipo==='evento'?'var(--blue)':it.status==='aprovado'?'var(--green)':'var(--amber)'}"></div>
-            <div>
-              <div style="font-weight:700;font-size:13px">${it.titulo}</div>
-              ${it.subtitulo?`<div style="font-size:11px;color:var(--txt3)">${it.subtitulo}</div>`:''}
-            </div>
-          </div>
+    <thead><tr><th>Evento / Cliente</th><th>Data</th><th>Colaboradores</th><th>Observações</th><th></th></tr></thead>
+    <tbody>${escalas.length?escalas.slice().reverse().map(es=>{
+      const orc=orcs.find(o=>o.id===es.orc_id)||{};
+      const nomes=(es.colab_ids||[]).map(id=>{
+        const co=cols.find(c=>c.id===id);
+        return co?`<span class="badge badge-blue" style="margin:2px">${co.nome}</span>`:'';
+      }).join('');
+      return `<tr>
+        <td><strong>${orc.cliente||es.evento||'—'}</strong><br><span style="font-size:11px;color:var(--txt3)">${orc.evento||''}</span></td>
+        <td>${orc.data_evento?fmtD(orc.data_evento):es.data||'—'}</td>
+        <td>${nomes||'<span style="color:var(--txt3)">Nenhum escalado</span>'}</td>
+        <td style="font-size:12px;color:var(--txt3)">${es.obs||'—'}</td>
+        <td style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" onclick="editEscala(${es.id})"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="delEscala(${es.id})"><i class="ti ti-trash"></i></button>
         </td>
-        <td style="font-size:12px;white-space:nowrap">
-          ${it.data_ini?fmtD(it.data_ini):'—'}
-          ${it.data_fim&&it.data_fim!==it.data_ini?`<br><span style="color:var(--txt3)">→ ${fmtD(it.data_fim)}</span>`:''}
-        </td>
-        <td style="font-size:12px;white-space:nowrap">
-          ${it.hora_ini?`${it.hora_ini}${it.hora_fim?' → '+it.hora_fim:''}`:'<span style="color:var(--txt3)">—</span>'}
-        </td>
-        <td style="font-size:12px;color:var(--txt3)">${it.local||'—'}</td>
-        <td>
-          <div style="display:flex;flex-wrap:wrap;gap:4px">
-            ${it.colaboradores.map(co=>`
-              <div style="display:flex;align-items:center;gap:4px;background:var(--surface2);border-radius:20px;padding:3px 8px 3px 4px">
-                <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${co.nome[0]}</div>
-                <span style="font-size:11px;font-weight:600">${co.nome.split(' ')[0]}</span>
-                ${co.funcao?`<span style="font-size:10px;color:var(--txt3)">${co.funcao}</span>`:''}
-              </div>`).join('')}
-          </div>
-        </td>
-        <td>
-          <span class="badge ${it.tipo==='evento'?'badge-blue':it.status==='aprovado'?'badge-green':'badge-amber'}">
-            ${it.tipo==='evento'?'Evento':it.status}
-          </span>
-        </td>
-        <td style="display:flex;gap:4px">
-          ${it.id_es?`<button class="btn btn-secondary btn-sm" onclick="editEscala(${it.id_es})"><i class="ti ti-edit"></i></button>
-          <button class="btn btn-danger btn-sm" onclick="delEscala(${it.id_es})"><i class="ti ti-trash"></i></button>`:''}
-          ${it.id_ev?`<button class="btn btn-secondary btn-sm" onclick="editarEvManual('${it.id_ev}')"><i class="ti ti-edit"></i></button>
-          <button class="btn btn-danger btn-sm" onclick="delEvManual('${it.id_ev}');pages.escalas()"><i class="ti ti-trash"></i></button>`:''}
-        </td>
-      </tr>`).join('')}
-    </tbody>
-  </table></div>`}`;
+      </tr>`;
+    }).join(''):'<tr><td colspan="5"><div class="empty"><i class="ti ti-calendar-event"></i><p>Nenhuma escala criada.</p></div></td></tr>'}
+    </tbody></table></div>`;
 },
 
+tarefas(){
+  const tarefas=DB.get('tarefas')||[];
+  const pendentes=tarefas.filter(t=>!t.feita).sort((a,b)=>{
+    if(a.prioridade==='alta'&&b.prioridade!=='alta') return -1;
+    if(b.prioridade==='alta'&&a.prioridade!=='alta') return 1;
+    return (a.prazo||'').localeCompare(b.prazo||'');
+  });
+  const feitas=tarefas.filter(t=>t.feita);
+  $('content').innerHTML=`
+  <div class="section-header">
+    <h2>${pendentes.length} pendente${pendentes.length!==1?'s':''}</h2>
+    <button class="btn btn-primary" onclick="novaTarefa()"><i class="ti ti-plus"></i> Nova tarefa</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:20px">
+    <input id="input-tarefa-rapida" placeholder="Adicionar tarefa rapidamente e pressionar Enter..." style="flex:1"
+      onkeydown="if(event.key==='Enter')addTarefaRapida()">
+    <button class="btn btn-primary" onclick="addTarefaRapida()"><i class="ti ti-plus"></i></button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
+    ${pendentes.length===0?`<div style="text-align:center;padding:32px;color:var(--txt3)">
+      <i class="ti ti-check" style="font-size:40px;display:block;margin-bottom:8px;color:var(--green)"></i>
+      Tudo em dia! Nenhuma tarefa pendente.
+    </div>`:''}
+    ${pendentes.map(t=>`
+    <div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1.5px solid ${t.prioridade==='alta'?'var(--red)':'var(--border)'};border-radius:10px;padding:12px 14px">
+      <input type="checkbox" onchange="toggleTarefa(${t.id})" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;accent-color:var(--blue)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${t.texto}</div>
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">
+          ${t.cat?`<span class="badge badge-blue" style="font-size:10px">${t.cat}</span>`:''}
+          ${t.prioridade==='alta'?'<span class="badge badge-red" style="font-size:10px">🔴 Urgente</span>':''}
+          ${t.prazo?`<span style="font-size:11px;color:var(--txt3)">📅 ${fmtD(t.prazo)}</span>`:''}
+          ${t.responsavel?`<span style="font-size:11px;color:var(--txt3)">👤 ${t.responsavel}</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="btn btn-secondary btn-sm" onclick="editTarefa(${t.id})"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="delTarefa(${t.id})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`).join('')}
+  </div>
+  ${feitas.length?`<div style="border-top:1px solid var(--border);padding-top:16px">
+    <div style="font-size:12px;font-weight:700;color:var(--txt3);margin-bottom:10px;text-transform:uppercase">✅ Concluídas (${feitas.length})</div>
+    ${feitas.map(t=>`
+    <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:6px;opacity:.65">
+      <input type="checkbox" checked onchange="toggleTarefa(${t.id})" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;accent-color:var(--green)">
+      <div style="flex:1;font-size:13px;color:var(--txt2);text-decoration:line-through">${t.texto}</div>
+      <button class="btn btn-danger btn-sm" onclick="delTarefa(${t.id})"><i class="ti ti-trash"></i></button>
+    </div>`).join('')}
+    <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="limparFeitas()"><i class="ti ti-trash"></i> Limpar concluídas</button>
+  </div>`:''}`;
+},
 log(){
   if(currentUser?.role!=='admin'){$('content').innerHTML='<div class="empty"><i class="ti ti-lock"></i><p>Acesso restrito.</p></div>';return;}
   const logs=JSON.parse(localStorage.getItem('sc_logs')||'[]');
