@@ -625,7 +625,7 @@ function novaEscala(){
   </div></div>
   <div class="form-row single"><div class="form-group"><label>Colaboradores escalados</label>
     <div id="cols-checks" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;background:var(--surface2);border-radius:8px;padding:10px">
-      ${cols.map(co=>`
+      ${cols.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(co=>`
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600">
           <input type="checkbox" id="chk-${co.id}" value="${co.id}" style="width:16px;height:16px">
           <span>${co.nome}</span>
@@ -652,7 +652,7 @@ function editEscala(id){
   </div></div>
   <div class="form-row single"><div class="form-group"><label>Colaboradores escalados</label>
     <div id="cols-checks" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;background:var(--surface2);border-radius:8px;padding:10px">
-      ${cols.map(co=>`
+      ${cols.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(co=>`
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600">
           <input type="checkbox" id="chk-${co.id}" value="${co.id}" ${(es.colab_ids||[]).includes(co.id)?'checked':''} style="width:16px;height:16px">
           <span>${co.nome}</span>
@@ -1096,7 +1096,7 @@ function novoEventoAgenda(dataInicial=''){
   </div></div>
   ${cols.length?`<div class="form-group"><label>Escalar colaboradores</label>
     <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;background:var(--surface2);border-radius:8px;padding:10px">
-      ${cols.map(co=>`
+      ${cols.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(co=>`
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600">
           <input type="checkbox" id="ev-col-${co.id}" value="${co.id}" style="width:16px;height:16px">
           <span>${co.nome}</span>
@@ -1166,7 +1166,7 @@ function editarEvManual(evId){
   </div></div>
   ${cols.length?`<div class="form-group"><label>Colaboradores escalados</label>
     <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;background:var(--surface2);border-radius:8px;padding:10px">
-      ${cols.map(co=>`
+      ${cols.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(co=>`
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600">
           <input type="checkbox" id="ev-col-${co.id}" value="${co.id}" ${(ev.colaboradores||[]).includes(co.id)?'checked':''} style="width:16px;height:16px">
           <span>${co.nome}</span>
@@ -1216,7 +1216,7 @@ function novaTarefa(){
     <div class="form-group"><label>Responsável</label>
       <select id="f-tar-resp">
         <option value="">— Sem responsável —</option>
-        ${cols.map(co=>`<option value="${co.nome}">${co.nome}</option>`).join('')}
+        ${cols.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(co=>`<option value="${co.nome}">${co.nome}</option>`).join('')}
       </select>
     </div>
   </div>`,
@@ -1248,7 +1248,7 @@ function editTarefa(id){
     <div class="form-group"><label>Responsável</label>
       <select id="f-tar-resp">
         <option value="">— Sem responsável —</option>
-        ${cols.map(co=>`<option value="${co.nome}" ${t.responsavel===co.nome?'selected':''}>${co.nome}</option>`).join('')}
+        ${cols.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(co=>`<option value="${co.nome}" ${t.responsavel===co.nome?'selected':''}>${co.nome}</option>`).join('')}
       </select>
     </div>
   </div>`,
@@ -1720,12 +1720,12 @@ dashboard(){
     <div>
       <div class="section-header"><h2>Estoque</h2><button class="btn btn-secondary btn-sm" onclick="go('equipamentos')">Gerenciar</button></div>
       <div class="table-wrap"><table><thead><tr><th>Equipamento</th><th>Qtd</th></tr></thead>
-      <tbody>${eq.map(e=>`<tr><td>${e.nome}</td><td><span class="badge ${e.qtd>2?'badge-green':e.qtd>0?'badge-amber':'badge-red'}">${e.qtd}</span></td></tr>`).join('')}</tbody></table></div>
+      <tbody>${eq.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(e=>`<tr><td>${e.nome}</td><td><span class="badge ${e.qtd>2?'badge-green':e.qtd>0?'badge-amber':'badge-red'}">${e.qtd}</span></td></tr>`).join('')}</tbody></table></div>
     </div>
   </div>`;
 },
 clientes(){
-  const cl=DB.get('clientes')||[];
+  const cl=(DB.get('clientes')||[]).slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
   $('content').innerHTML=`
   <div class="section-header"><h2>${cl.length} clientes</h2>
     <button class="btn btn-primary" onclick="novoCliente()"><i class="ti ti-plus"></i>Novo cliente</button></div>
@@ -1936,7 +1936,7 @@ relatorios(){
   </div>`;
 },
 colaboradores(){
-  const col=DB.get('colaboradores')||[];
+  const col=(DB.get('colaboradores')||[]).slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
   $('content').innerHTML=`
   <div class="section-header"><h2>${col.length} colaboradores</h2>
     <button class="btn btn-primary" onclick="novoColab()"><i class="ti ti-plus"></i>Novo colaborador</button></div>
@@ -2270,7 +2270,7 @@ function getCats(){
     }).filter(x=>x.length>=1);
     // Auto-corrigir se resultado parece corrompido
     if(result.length===0) return PADRAO;
-    return result;
+    return result.sort((a,b)=>a.localeCompare(b,'pt-BR'));
   } catch(e) {
     return PADRAO;
   }
@@ -2423,7 +2423,7 @@ function voltarParaOrc(cliId,evento,data,ret,local,frete){
   openModal('Novo orçamento',`
   <div class="form-row"><div class="form-group"><label>Cliente</label>
     <div style="display:flex;gap:6px">
-      <select id="f-cli" style="flex:1">${cl.map(c=>`<option value="${c.id}"${String(c.id)===String(cliId)?' selected':''}>${c.nome}</option>`).join('')}</select>
+      <select id="f-cli" style="flex:1">${cl.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}"${String(c.id)===String(cliId)?' selected':''}>${c.nome}</option>`).join('')}</select>
       <button class="btn btn-secondary btn-sm" onclick="novoClienteRapido()" title="Adicionar novo cliente" style="flex-shrink:0"><i class="ti ti-user-plus"></i></button>
     </div>
   </div><div class="form-group"><label>Tipo de evento</label><input id="f-evento" placeholder="Casamento, Formatura..." value="${evento||''}"></div></div>
@@ -2437,7 +2437,7 @@ function voltarParaOrc(cliId,evento,data,ret,local,frete){
     </select>
   </div></div>
   <div class="form-row"><div class="form-group"><label>Equipamento</label>
-    <select id="f-eq-sel">${(()=>{const vistos={};return eq.filter(e=>{if(vistos[e.nome])return false;vistos[e.nome]=true;return true;}).map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');})()}</select>
+    <select id="f-eq-sel">${(()=>{const vistos={};return eq.filter(e=>{if(vistos[e.nome])return false;vistos[e.nome]=true;return true;}).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');})()}</select>
   </div><div class="form-group"><label>Quantidade</label>
     <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
     <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
@@ -2478,7 +2478,7 @@ function novoOrc(){
     <div style="display:flex;gap:6px">
       <select id="f-cli" style="flex:1" onchange="toggleAvulso(this.value)">
         <option value="">— Orçamento avulso (sem cliente) —</option>
-        ${cl.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}
+        ${cl.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}
       </select>
       <button class="btn btn-secondary btn-sm" onclick="novoClienteRapido()" title="Novo cliente" style="flex-shrink:0"><i class="ti ti-user-plus"></i></button>
     </div>
@@ -2496,7 +2496,7 @@ function novoOrc(){
     </select>
   </div></div>
   <div class="form-row"><div class="form-group"><label>Equipamento</label>
-    <select id="f-eq-sel">${(()=>{const vistos={};return eq.filter(e=>{if(vistos[e.nome])return false;vistos[e.nome]=true;return true;}).map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');})()}</select>
+    <select id="f-eq-sel">${(()=>{const vistos={};return eq.filter(e=>{if(vistos[e.nome])return false;vistos[e.nome]=true;return true;}).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');})()}</select>
   </div><div class="form-group"><label>Quantidade</label>
     <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
     <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
@@ -2720,7 +2720,7 @@ function filtrarEqOrc(){
   const eq=DB.get('equipamentos')||[];
   const filtrados=cat?eq.filter(e=>e.cat===cat):eq;
   const vistos2={};
-  sel.innerHTML=filtrados.filter(e=>{if(vistos2[e.nome])return false;vistos2[e.nome]=true;return true;}).map(e=>`<option value="${e.id}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');
+  sel.innerHTML=filtrados.filter(e=>{if(vistos2[e.nome])return false;vistos2[e.nome]=true;return true;}).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(e=>`<option value="${e.id}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');
 }
 // Calcula estoque disponível para um equipamento em um período
 function estoqueDisponivel(nomeEq, dataInicio, dataFim, orcIdIgnorar=null){
@@ -2951,7 +2951,7 @@ function editarOrc(id){
     <div style="display:flex;gap:6px">
       <select id="f-cli" style="flex:1" onchange="toggleAvulso(this.value)">
         <option value="">— Orçamento avulso (sem cliente) —</option>
-        ${cl.map(cli=>`<option value="${cli.id}" ${cli.id===o.cliente_id?'selected':''}>${cli.nome}</option>`).join('')}
+        ${cl.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(cli=>`<option value="${cli.id}" ${cli.id===o.cliente_id?'selected':''}>${cli.nome}</option>`).join('')}
       </select>
     </div>
   </div>
@@ -2968,7 +2968,7 @@ function editarOrc(id){
   <div class="form-row single"><div class="form-group"><label>Endereço</label><input id="f-local" value="${o.local||''}"></div></div>
   <div class="form-row"><div class="form-group"><label>Equipamento</label>
     <select id="f-eq-sel">
-      ${(()=>{const vistos={};return eq.filter(e=>{if(vistos[e.nome])return false;vistos[e.nome]=true;return true;}).map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');})()}
+      ${(()=>{const vistos={};return eq.filter(e=>{if(vistos[e.nome])return false;vistos[e.nome]=true;return true;}).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');})()}
     </select></div>
     <div class="form-group"><label>Qtd</label>
       <div style="display:flex;gap:6px;align-items:center">
