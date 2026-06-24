@@ -2442,6 +2442,19 @@ function voltarParaOrc(cliId,evento,data,ret,local,frete){
     <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
     <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
   </div></div>
+  <div style="text-align:center;margin:4px 0;font-size:11px;color:var(--txt3)">— ou —</div>
+  <div class="form-row"><div class="form-group" style="flex:2"><label>Item avulso (não cadastrado)</label>
+    <input id="f-avulso-nome" placeholder="Ex: iPad pessoal, equipamento de terceiro...">
+  </div>
+  <div class="form-group" style="flex:1"><label>Valor diária (R$)</label>
+    <input id="f-avulso-valor" type="number" min="0" step="0.01" placeholder="0,00">
+  </div></div>
+  <div class="form-row"><div class="form-group"><label>Qtd</label>
+    <input id="f-avulso-qtd" type="number" value="1" min="1">
+  </div>
+  <div class="form-group" style="display:flex;align-items:flex-end">
+    <button class="btn btn-secondary" onclick="addItemAvulso()" style="width:100%"><i class="ti ti-plus"></i> Adicionar item avulso</button>
+  </div></div>
   <div id="orc-alerta-estoque" style="display:none"></div>
   <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
   <div class="form-row">
@@ -2500,6 +2513,19 @@ function novoOrc(){
   </div><div class="form-group"><label>Quantidade</label>
     <div style="display:flex;gap:6px"><input id="f-eq-qtd" type="number" value="1" min="1" style="width:80px">
     <button class="btn btn-primary" onclick="addItemOrc()" style="flex:1"><i class="ti ti-plus"></i>Adicionar</button></div>
+  </div></div>
+  <div style="text-align:center;margin:4px 0;font-size:11px;color:var(--txt3)">— ou —</div>
+  <div class="form-row"><div class="form-group" style="flex:2"><label>Item avulso (não cadastrado)</label>
+    <input id="f-avulso-nome" placeholder="Ex: iPad pessoal, equipamento de terceiro...">
+  </div>
+  <div class="form-group" style="flex:1"><label>Valor diária (R$)</label>
+    <input id="f-avulso-valor" type="number" min="0" step="0.01" placeholder="0,00">
+  </div></div>
+  <div class="form-row"><div class="form-group"><label>Qtd</label>
+    <input id="f-avulso-qtd" type="number" value="1" min="1">
+  </div>
+  <div class="form-group" style="display:flex;align-items:flex-end">
+    <button class="btn btn-secondary" onclick="addItemAvulso()" style="width:100%"><i class="ti ti-plus"></i> Adicionar item avulso</button>
   </div></div>
   <div id="orc-alerta-estoque" style="display:none"></div>
   <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
@@ -2779,6 +2805,24 @@ function addItemOrc(){
   }
   renderOrcItens();
 }
+
+function addItemAvulso(){
+  const nome=$('f-avulso-nome')?.value?.trim();
+  const valor=parseFloat($('f-avulso-valor')?.value)||0;
+  const qtd=parseInt($('f-avulso-qtd')?.value)||1;
+  if(!nome){toast('Digite o nome do item avulso',false);return;}
+  if(valor<=0){toast('Informe um valor para o item',false);return;}
+  // Item avulso usa um eq_id negativo único para não conflitar com IDs reais
+  const avulsoId=-Date.now();
+  orcItens.push({eq_id:avulsoId,nome,qtd,diarias:1,unitario:valor,
+    avulso:true,estoque:null,estoqueTotal:null,conflitos:[]});
+  // Limpar campos
+  if($('f-avulso-nome')) $('f-avulso-nome').value='';
+  if($('f-avulso-valor')) $('f-avulso-valor').value='';
+  if($('f-avulso-qtd')) $('f-avulso-qtd').value='1';
+  renderOrcItens();
+  toast('Item avulso adicionado!');
+}
 function removeItemOrc(i){orcItens.splice(i,1);renderOrcItens();}
 // Calcula diárias cobradas com tabela de desconto por período
 // 1-8 dias:    cobra dias reais
@@ -2826,6 +2870,7 @@ function renderOrcItens(){
   const d2Atual=$('f-ret')?.value;
   const alertasEstoque=[];
   orcItens.forEach(it=>{
+    if(it.avulso){ it.estoque=null; it.estoqueTotal=null; it.conflitos=[]; return; }
     const dispInfo=estoqueDisponivel(it.nome,d1Atual,d2Atual);
     it.estoque=dispInfo.disponivel;
     it.estoqueTotal=dispInfo.total;
@@ -2880,11 +2925,11 @@ function renderOrcItens(){
   }
 
   prev.innerHTML=`<div class="orc-items-list">${orcItens.map((it,idx)=>{
-    const semEstoque=it.estoque!==undefined&&it.qtd>it.estoque;
+    const semEstoque=!it.avulso&&it.estoque!==undefined&&it.qtd>it.estoque;
     return `
     <div class="orc-item-row" style="${semEstoque?'background:rgba(239,68,68,.05);border-radius:6px;padding:4px 6px;':''}">
       <span style="flex:1;font-size:13px">
-        ${it.nome}${semEstoque?` <span style="color:var(--red);font-size:11px">(falta ${it.qtd-it.estoque})</span>`:''}
+        ${it.nome}${it.avulso?' <span class="badge badge-amber" style="font-size:9px">avulso</span>':''}${semEstoque?` <span style="color:var(--red);font-size:11px">(falta ${it.qtd-it.estoque})</span>`:''}
         ${it.calcInfo&&it.calcInfo.desconto?`<br><span style="font-size:10px;color:var(--green)">📅 ${it.diariasReais} dias → cobrado ${it.diarias} diárias (máx ${it.calcInfo.limiteAtual}/mês) · economia ${brl(it.calcInfo.economia*it.qtd)}</span>`:''}
       </span>
       <span style="color:var(--txt3);font-size:12px">${it.qtd}x ${dias} dia(s)</span>
@@ -2925,7 +2970,7 @@ function salvarOrc(){
   const num=String(or.length+1).padStart(4,'0');
   const nomeCliente=cli?cli.nome:($('f-nome-avulso')?.value?.trim()||'Avulso');
   const novo={id:Date.now(),num,cliente_id:cid,cliente:nomeCliente,evento:ev,data_evento:d1,data_ret:d2,
-    local:$('f-local')?.value||'',itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diarias:i.diarias,unitario:i.unitario})),
+    local:$('f-local')?.value||'',itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diarias:i.diarias,unitario:i.unitario,avulso:i.avulso||false})),
     frete,desconto:descontoReais,desconto_tipo:descontoTipo,desconto_val:descontoVal,total,status:'pendente',
     criado:new Date().toISOString().split('T')[0],
     criado_por:currentUser?.nome||'',
@@ -2941,7 +2986,7 @@ function editarOrc(id){
   const o=orcs.find(x=>x.id===id);if(!o)return;
   const cl=DB.get('clientes')||[],eq=DB.get('equipamentos')||[];
   // Carregar itens existentes
-  orcItens=(o.itens||[]).map(i=>({...i}));
+  orcItens=(o.itens||[]).map(i=>({...i, eq_id:i.eq_id||(i.avulso?-Date.now()-Math.random():undefined)}));
   const desconto=o.desconto_val||0;
   const descontoTipo=o.desconto_tipo||'R$';
   const frete=o.frete||0;
@@ -3032,7 +3077,7 @@ function salvarEdicaoOrc(id){
     cliente_id:cid, cliente:nomeCliente, evento:ev,
     data_evento:d1, data_ret:d2,
     local:$('f-local')?.value||'',
-    itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diarias:i.diarias,unitario:i.unitario})),
+    itens:orcItens.map(i=>({nome:i.nome,qtd:i.qtd,diarias:i.diarias,unitario:i.unitario,avulso:i.avulso||false})),
     frete, desconto:descontoReais, desconto_tipo:descontoTipoSel, desconto_val:descontoVal, total
   };
   DB.set('orcamentos',orcs);
