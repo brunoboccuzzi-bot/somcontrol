@@ -2966,6 +2966,12 @@ function editarOrc(id){
     <div class="form-group"><label>Devolução</label><input id="f-ret" type="date" value="${(o.data_ret||'').substring(0,10)}" onchange="renderOrcItens()"></div>
   </div>
   <div class="form-row single"><div class="form-group"><label>Endereço</label><input id="f-local" value="${o.local||''}"></div></div>
+  <div class="form-row single"><div class="form-group"><label>Filtrar por categoria</label>
+    <select id="f-cat-filtro" onchange="filtrarEqOrc()">
+      <option value="">Todos os equipamentos</option>
+      ${[...new Set(eq.map(e=>e.cat).filter(x=>x))].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(cat=>`<option value="${cat}">${cat}</option>`).join('')}
+    </select>
+  </div></div>
   <div class="form-row"><div class="form-group"><label>Equipamento</label>
     <select id="f-eq-sel">
       ${(()=>{const vistos={};return eq.filter(e=>{if(vistos[e.nome])return false;vistos[e.nome]=true;return true;}).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(e=>`<option value="${e.id}" data-cat="${e.cat||''}">${e.nome} — ${brl(e.diaria)}/dia</option>`).join('');})()}
