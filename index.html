@@ -2832,17 +2832,17 @@ function removeItemOrc(i){orcItens.splice(i,1);renderOrcItens();}
 // 91-120 dias: cobra 5 diárias
 // 121-365 dias: cobra 4 diárias
 function calcDiariasEfetivas(dias, diaria){
-  let cobranca;
-  if(dias <= 8)        cobranca = dias;
-  else if(dias <= 30)  cobranca = 8;
-  else if(dias <= 60)  cobranca = 7;
-  else if(dias <= 90)  cobranca = 6;
-  else if(dias <= 120) cobranca = 5;
-  else                 cobranca = 4;
+  // Cada 30 dias = 8 diárias (valor mensal)
+  // Dias restantes: 1-8 cobram por dia, 9-30 cobram 8 diárias
+  if(dias <= 0) return {diariasEfetivas:0,diariasCobranca:0,limiteAtual:0,desconto:false,economia:0};
+  const meses = Math.floor(dias / 30);
+  const resto = dias % 30;
+  let cobranca = meses * 8;
+  if(resto > 0) cobranca += (resto >= 9 ? 8 : resto);
   return {
     diariasEfetivas: dias,
     diariasCobranca: cobranca,
-    limiteAtual: cobranca,
+    limiteAtual: 8,
     desconto: dias > 8,
     economia: Math.max(0, dias - cobranca) * diaria
   };
@@ -3028,19 +3028,6 @@ function editarOrc(id){
       </div>
     </div>
   </div>
-  <div style="text-align:center;margin:4px 0;font-size:11px;color:var(--txt3)">— ou —</div>
-  <div class="form-row"><div class="form-group" style="flex:2"><label>Item avulso (não cadastrado)</label>
-    <input id="f-avulso-nome" placeholder="Ex: iPad pessoal, equipamento de terceiro...">
-  </div>
-  <div class="form-group" style="flex:1"><label>Valor diária (R$)</label>
-    <input id="f-avulso-valor" type="number" min="0" step="0.01" placeholder="0,00">
-  </div></div>
-  <div class="form-row"><div class="form-group"><label>Qtd</label>
-    <input id="f-avulso-qtd" type="number" value="1" min="1">
-  </div>
-  <div class="form-group" style="display:flex;align-items:flex-end">
-    <button class="btn btn-secondary" onclick="addItemAvulso()" style="width:100%"><i class="ti ti-plus"></i> Adicionar item avulso</button>
-  </div></div>
   <div id="orc-alerta-estoque" style="display:none"></div>
   <div id="orc-items-preview"><div class="empty" style="padding:16px 0"><i class="ti ti-package"></i><p>Nenhum item ainda</p></div></div>
   <div class="form-row">
