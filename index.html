@@ -1701,7 +1701,13 @@ function gerarPDF(orc, interno=false){
   doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(80,80,80);
   doc.text('Assinatura',ax,y+5,{align:'center'});
 
-  const nomeArq=interno?`INTERNO_Orcamento_${ss(orc.num)}.pdf`:`Orcamento_${ss(orc.num)}_INCA.pdf`;
+  // Nome: Orcamento_NomeCliente_0001.pdf
+  const slugify=str=>(str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9\s]/g,'').trim().replace(/\s+/g,'_').substring(0,40);
+  const nomeCli=slugify(orc.cliente||'Avulso');
+  const nomeArq=interno
+    ?`INTERNO_Orcamento_${nomeCli}_${ss(orc.num)}.pdf`
+    :`Orcamento_${nomeCli}_${ss(orc.num)}.pdf`;
   doc.save(nomeArq);
   }catch(err){
     console.error('Erro gerarPDF:',err);
