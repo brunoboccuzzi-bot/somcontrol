@@ -1606,6 +1606,8 @@ function gerarPDF(orc, interno=false){
     txt('Subtotal',mx[4]+bp,y+4,{bold:true,size:8});
     y+=mh;
     itens.forEach(it=>{
+      // Verificar se precisa de nova página durante listagem
+      if(y+mh > PH-MB){ doc.addPage(); y=20; }
       const qtd=nn(it.qtd),dias=nn(it.diarias||1),unit=nn(it.unitario||it.diaria||0);
       const sub=qtd*dias*unit;total_parcial+=sub;
       mc.forEach((w,i)=>{doc.setDrawColor(180);doc.rect(mx[i],y,w,mh,'S');});
@@ -1651,8 +1653,9 @@ function gerarPDF(orc, interno=false){
   const servico=nn(orc.servico);
   const desconto=nn(orc.desconto);
   const total=nn(orc.total)||total_parcial+frete;
-  // Material = total_parcial (soma dos itens com diárias cobradas)
   const material=total_parcial;
+  const PH=297; // A4 height mm
+  const MB=18;  // margem inferior
 
   const rrows=[
     ['MATERIAL',brl(material)],
@@ -1660,6 +1663,19 @@ function gerarPDF(orc, interno=false){
     ['SERVIÇO',servico?brl(servico):''],
     ['DESCONTO',desconto?brl(desconto):''],
   ].filter(r=>r[1]);
+
+  // Calcular espaço necessário para resumo + termos + assinatura
+  const termos='TERMOS CONTRATUAIS: A locatária se responsabiliza pelas eventuais perdas e danos causados ao equipamento, devido ao mau uso de seus operadores e/ou exposição a condições adversas de umidade e temperatura. Incluindo caso fortuito ou força maior.';
+  doc.setFontSize(7.5);
+  const termosLines=doc.splitTextToSize(termos,CW);
+  const espacoNecessario=(rrows.length+1)*mh + 10 + termosLines.length*4 + 10 + 15;
+
+  // Se não cabe na página atual, adicionar nova página
+  if(y + espacoNecessario > PH - MB){
+    doc.addPage();
+    y=20;
+  }
+
   rrows.forEach(([l,v])=>{
     doc.setDrawColor(180);
     doc.rect(ML,y,rcol1,mh,'S');doc.rect(ML+rcol1,y,rcol2,mh,'S');
@@ -1675,11 +1691,9 @@ function gerarPDF(orc, interno=false){
   y+=mh+10;
 
   // TERMOS
-  const termos='TERMOS CONTRATUAIS: A locatária se responsabiliza pelas eventuais perdas e danos causados ao equipamento, devido ao mau uso de seus operadores e/ou exposição a condições adversas de umidade e temperatura. Incluindo caso fortuito ou força maior.';
   doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(80,80,80);
-  const lines=doc.splitTextToSize(termos,CW);
-  doc.text(lines,W/2,y,{align:'center'});
-  y+=lines.length*4+10;
+  doc.text(termosLines,W/2,y,{align:'center'});
+  y+=termosLines.length*4+10;
 
   // ASSINATURA
   const ax=W/2;
