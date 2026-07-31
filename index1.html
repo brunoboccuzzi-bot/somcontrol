@@ -1687,14 +1687,7 @@ function gerarPDF(orc, interno=false){
   doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(80,80,80);
   doc.text('Assinatura',ax,y+5,{align:'center'});
 
-  // Nome do arquivo: Orçamento - Nome Cliente - Evento
-  const slugify=str=>(str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-zA-Z0-9\s]/g,'').trim().replace(/\s+/g,'_').substring(0,30);
-  const nomeCli=slugify(orc.cliente||'');
-  const nomeEvento=slugify(orc.evento||'');
-  const nomeArq=interno
-    ?`INTERNO_Orc${ss(orc.num)}_${nomeCliente}.pdf`
-    :`Orcamento_${nomeCli}${nomeEvento?'_'+nomeEvento:''}.pdf`;
+  const nomeArq=interno?`INTERNO_Orcamento_${ss(orc.num)}.pdf`:`Orcamento_${ss(orc.num)}_INCA.pdf`;
   doc.save(nomeArq);
   }catch(err){
     console.error('Erro gerarPDF:',err);
@@ -2839,19 +2832,30 @@ function removeItemOrc(i){orcItens.splice(i,1);renderOrcItens();}
 // 91-120 dias: cobra 5 diárias
 // 121-365 dias: cobra 4 diárias
 function calcDiariasEfetivas(dias, diaria){
-  let cobranca;
-  if(dias <= 8)        cobranca = dias;
-  else if(dias <= 30)  cobranca = 8;
-  else if(dias <= 60)  cobranca = 7;
-  else if(dias <= 90)  cobranca = 6;
-  else if(dias <= 120) cobranca = 5;
-  else                 cobranca = 4;
+  // Regra de diárias por mês:
+  // 1-8 dias: cobra por dia
+  // 9d a 4 meses (120d): 8 diárias/mês
+  // 5 meses (121-150d): 7 diárias/mês
+  // 6 meses (151-180d): 6 diárias/mês
+  // 7+ meses (181d+): 5 diárias/mês (mínimo)
+  if(dias <= 0) return {diariasEfetivas:0,diariasCobranca:0,limiteAtual:0,desconto:false,economia:0};
+  if(dias <= 8) return {diariasEfetivas:dias,diariasCobranca:dias,limiteAtual:dias,desconto:false,economia:0};
+  const meses=Math.floor(dias/30);
+  const resto=dias%30;
+  // Diárias por mês baseado no total de meses contratados
+  let dpm;
+  if(meses<=4)      dpm=8;
+  else if(meses===5) dpm=7;
+  else if(meses===6) dpm=6;
+  else               dpm=5; // 7+ meses
+  let cobranca=meses*dpm;
+  if(resto>0) cobranca+=(resto>=9?dpm:resto);
   return {
-    diariasEfetivas: dias,
-    diariasCobranca: cobranca,
-    limiteAtual: cobranca,
-    desconto: dias > 8,
-    economia: Math.max(0, dias - cobranca) * diaria
+    diariasEfetivas:dias,
+    diariasCobranca:cobranca,
+    limiteAtual:dpm,
+    desconto:true,
+    economia:Math.max(0,dias-cobranca)*diaria
   };
 }
 
